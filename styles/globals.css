@@ -1,3 +1,110 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
+@media print {
+  body {
+    /* Puedes ajustar márgenes o fuentes si es necesario */
+    font-size: 10pt; /* Tamaño más adecuado para papel */
+    color: black; /* Asegurar texto negro */
+    background-color: white !important; /* Forzar fondo blanco */
+    -webkit-print-color-adjust: exact; /* Forzar impresión de colores de fondo si los usas */
+             print-color-adjust: exact;
+  }
+
+  /* Ocultar elementos no necesarios para la impresión */
+  header,            /* Oculta el Header */
+  nav,               /* Oculta barras de navegación si las hubiera */
+  form,              /* Oculta el formulario */
+  button,            /* Oculta todos los botones */
+  footer,            /* Oculta pies de página si los hubiera */
+  .no-print {        /* Clase genérica para ocultar otros elementos */
+    display: none !important;
+  }
+
+  /* Asegurar que los componentes de resultados y tabla sean visibles */
+  main > div > div:has(> div > h2:contains("Resultados del Modelo")), /* Contenedor de ResultsDisplay */
+  main > div > div:has(> div > h2:contains("Distribución de Probabilidad")) /* Contenedor de ProbabilityTable */
+  {
+     display: block !important;
+     margin-top: 0 !important;
+     box-shadow: none !important; /* Quitar sombras */
+     border: none !important; /* Quitar bordes */
+  }
+
+   /* Ajustes específicos para las tarjetas de resultados y tabla en impresión */
+  .card-print {
+     box-shadow: none !important;
+     border: 1px solid #ccc !important; /* Añadir un borde sutil si se desea */
+     margin-bottom: 1rem;
+     page-break-inside: avoid; /* Intentar evitar que se corte la tarjeta entre páginas */
+  }
+  .card-print .card-header-print {
+     background-color: #eee !important; /* Un fondo ligero para el header */
+     padding: 0.5rem 1rem !important;
+     border-bottom: 1px solid #ccc !important;
+     -webkit-print-color-adjust: exact;
+             print-color-adjust: exact;
+  }
+   .card-print .card-body-print {
+       padding: 1rem !important;
+   }
+
+
+   /* Ajustes para la tabla de probabilidad */
+   table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+      margin-top: 0.5rem;
+   }
+   th, td {
+      border: 1px solid #ddd !important;
+      padding: 4px 8px !important;
+      text-align: left !important;
+   }
+   th {
+       background-color: #f2f2f2 !important; /* Fondo claro para encabezados */
+       -webkit-print-color-adjust: exact;
+             print-color-adjust: exact;
+   }
+
+   /* Ajustes para los items de resultados */
+   .result-item-print > span:first-child {
+       font-size: 8pt;
+       color: #555;
+   }
+    .result-item-print > span:last-child {
+       font-size: 11pt;
+       font-weight: bold;
+   }
+    .result-item-print > span:last-child > span { /* Unidad */
+        font-size: 9pt;
+        font-weight: normal;
+    }
+
+    /* Ocultar elementos interactivos dentro de los componentes impresos */
+    /* (Si hubiera tooltips, botones internos, etc.) */
+
+}
+
+.asistente-highlight {
+  position: relative; /* Necesario para que z-index funcione */
+  
+  /* --- CORRECCIÓN DE Z-INDEX --- */
+  /* Más alto que el overlay (9990), Más bajo que la ventana (9999) */
+  z-index: 9995; 
+
+  /* Asegura que el fondo sea sólido para tapar el overlay */
+  /* (Esto puede ser innecesario si tus Cards ya tienen fondo blanco) */
+  /* background-color: white;  */ 
+
+  transition: all 0.3s ease-in-out;
+  border-radius: 12px; /* Ajusta esto al borde de tus tarjetas */
+
+  /* --- CORRECCIÓN: Quitar el box-shadow que hacía de overlay --- */
+  /* box-shadow: 0 0 0 3px #0B508C, 0 0 0 9999px rgba(0, 0, 0, 0.5); */
+
+  /* --- NUEVO: Sombra sutil solo para resaltar --- */
+  box-shadow: 0 0 0 3px #0B508C, 0 0 15px 5px #3C74A6;
+}

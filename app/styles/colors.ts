@@ -1,10 +1,3 @@
-/**
- * Elara frontend - Brand principal
- *
- * Este archivo centraliza todos los colores
- * utilizados en la aplicacion
- 
-*/
 
 
 export const colors = {
