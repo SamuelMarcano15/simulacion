@@ -1,0 +1,29 @@
+.
+├── README.md
+├── app
+│   ├── favicon.ico
+│   ├── layout.tsx
+│   ├── page.tsx
+│   ├── providers.tsx
+│   └── styles
+│       └── colors.ts
+├── config
+│   └── fonts.ts
+├── eslint.config.mjs
+├── estructura.txt
+├── next.config.mjs
+├── package-lock.json
+├── package.json
+├── postcss.config.mjs
+├── public
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── next.svg
+│   ├── vercel.svg
+│   └── window.svg
+├── styles
+│   └── globals.css
+├── tailwind.config.ts
+└── tsconfig.json
+
+6 directories, 21 files

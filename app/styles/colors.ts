@@ -8,13 +8,14 @@
 
 
 export const colors = {
-    brand: {
-        primary: "#4F758C",   // Nuestro azul medio
-        accent: "#60BFA4",    // Nuestro turquesa verdoso
-        dark: "#404759",      // Un gris azulado
-        background: "#F9FAFB", // Fondo principal para modo claro
-        darkBackground: "#1F2937", // Fondo oscuro, un negro azulado
-    },
+    unimar: {
+          primary: '#0B508C',      // Azul Principal
+          secondary: '#3C74A6',   // Azul Secundario
+          accent: '#7EA1BF',       // Azul Acento
+          background: '#F2F2F2', // Fondo Claro (Podrías usar 'white' o 'gray-100' también)
+          textDark: '#262626',     // Texto Oscuro
+          // Puedes añadir variantes si lo necesitas, ej: primary-dark, primary-light
+        },
 
     // Estados y mensajes de la aplicación
     status: {
@@ -42,11 +43,10 @@ export const colors = {
 //Configuracion para ser consumida por Tailwind
 
 export const tailwindColors = {
-    'primary': colors.brand.primary,
-    'accent': colors.brand.accent,
-    'dark': colors.brand.dark,
-    'background': colors.brand.background,
-    'darkBackground': colors.brand.darkBackground,
+    'primary': colors.unimar.primary,
+    'accent': colors.unimar.accent,
+    'dark': colors.unimar.textDark,
+    'background': colors.unimar.background,
     'success': colors.status.success,
     'error': colors.status.error,
     'warning': colors.status.warning,
