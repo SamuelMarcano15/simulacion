@@ -40,8 +40,23 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results }) => {
             <ResultItem label="Clientes en Cola (Lq)" value={formatNumber(results.lq)} symbol="Lq" unit="clientes"/>
             <ResultItem label="Tiempo en Sistema (Ws)" value={formatNumber(results.ws)} symbol="Ws" unit="uds. tiempo"/>
             <ResultItem label="Tiempo en Cola (Wq)" value={formatNumber(results.wq)} symbol="Wq" unit="uds. tiempo"/>
-           {results.lambdaEff !== undefined && (
-              <ResultItem label="Tasa Efectiva Llegada (λeff)" value={formatNumber(results.lambdaEff)} symbol="λeff" unit="clientes/ud. tiempo" />
+           
+           {results.modelType === 'finite' && (
+             <>
+                <ResultItem 
+                  label="Tasa Efectiva Llegada (λeff)" 
+                  value={formatNumber(results.lambdaEff)} 
+                  symbol="λeff" 
+                  unit="clientes/ud. tiempo" 
+                />
+                
+                <ResultItem 
+                  label="Tasa de Llegada Perdida (λp)" 
+                  value={formatNumber(results.lambdaPerdida)} 
+                  symbol="λp" 
+                  unit="clientes/ud. tiempo" 
+                />
+             </>
            )}
            {/* Puedes añadir más si es necesario */}
          </CardBody>

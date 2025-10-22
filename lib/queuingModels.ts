@@ -65,6 +65,7 @@ export function calculateMM1Infinite(lambda: number, mu: number): QueueModelResu
     lq,
     ws,
     wq,
+    lambdaPerdida: 0,
     probabilities,
     modelType: 'infinite',
     params: { lambda, mu }
@@ -140,6 +141,8 @@ export function calculateMM1Finite(lambda: number, mu: number, N: number): Queue
   const lq_raw = ls - (lambdaEff / mu);
   const lq = lq_raw < 0 ? 0 : lq_raw; // Clientes promedio en la cola shouldn't be negative
 
+  const lambdaPerdida = lambda - lambdaEff;
+
    // Manejo de división por cero si lambdaEff es 0 (ocurre si lambda es 0)
    const safe_ws = lambdaEff === 0 ? 0 : ls / lambdaEff; // Tiempo promedio en el sistema
    const safe_wq = lambdaEff === 0 ? 0 : lq / lambdaEff; // Tiempo promedio en la cola
@@ -153,6 +156,7 @@ export function calculateMM1Finite(lambda: number, mu: number, N: number): Queue
     ws: safe_ws,
     wq: safe_wq,
     lambdaEff,
+    lambdaPerdida,
     probabilities,
     modelType: 'finite',
     params: { lambda, mu, N }

@@ -6,7 +6,7 @@ import {
   PageSizes,
   PDFPage,
 } from "pdf-lib";
-import { QueueModelResults, ProbabilityDistribution } from "@/lib/types"; // Asegúrate que la ruta sea correcta
+import { QueueModelResults } from "@/lib/types"; // Asegúrate que la ruta sea correcta
 
 // Helper para formatear números en el PDF
 const formatNum = (num?: number, decimals = 4): string => {
@@ -69,6 +69,17 @@ export async function generatePdfReport(
       lineHeight: size * 1.2,
     });
     return size * 1.2;
+  };
+
+  const interpretations = {
+    rho: `Significa que el servidor está ocupado el ${formatNum((results.rho ?? 0) * 100, 2)}% del tiempo.`,
+    p0: `Hay un ${formatNum((results.p0 ?? 0) * 100, 2)}% de probabilidad de que el sistema esté completamente vacío (sin clientes).`,
+    ls: `Indica que, en cualquier momento, se espera encontrar un promedio de ${formatNum(results.ls, 4)} clientes en el sistema (esperando en cola + siendo atendidos).`,
+    lq: `Indica que, en cualquier momento, se espera encontrar un promedio de ${formatNum(results.lq, 4)} clientes esperando en la cola.`,
+    ws: `Un cliente (desde que llega hasta que se va) pasa un promedio de ${formatNum(results.ws, 4)} unidades de tiempo en el sistema.`,
+    wq: `Un cliente pasa un promedio de ${formatNum(results.wq, 4)} unidades de tiempo solo esperando en la cola (antes de ser atendido).`,
+    lambdaEff: `De los ${results.params.lambda} clientes que llegan por unidad de tiempo, solo ${formatNum(results.lambdaEff, 4)} logran entrar al sistema.`,
+    lambdaPerdida: `En promedio, ${formatNum(results.lambdaPerdida, 4)} clientes por unidad de tiempo son rechazados o se van porque el sistema está lleno (N=${results.params.N}).`
   };
 
   // --- Título ---
@@ -154,138 +165,71 @@ export async function generatePdfReport(
   y -= 15;
 
   // --- Métricas Calculadas ---
-  y -= draw(
-    "Métricas de Desempeño",
-    0,
-    y,
-    fontSizeHeader,
-    page,
-    fontBold,
-    unimarSecondary
-  ); // <-- Pasar 'page'
+y -= draw( "Métricas de Desempeño", 0, y, fontSizeHeader, page, fontBold, unimarSecondary );
   y -= 5;
   const metricX = 10;
   const metricValueX = 250;
+  const interpretationX = 15;
+  const metricSpacing = 3;
+  const interpretationSpacing = 8;
 
-  y -= draw(
-    "Factor de Utilización (Rho):",
-    metricX,
-    y,
-    fontSizeBody,
-    page,
-    fontBold
-  ); // <-- Pasar 'page'
-  draw(
-    formatNum(results.rho),
-    metricValueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  ); // <-- Pasar 'page'
-  y -= fontSizeBody * 1.2 + 3;
+  // Rho
+  y -= draw( "Factor de Utilización (Rho):", metricX, y, fontSizeBody, page, fontBold );
+  draw( formatNum(results.rho), metricValueX, y + fontSizeBody * 1.2, fontSizeBody, page );
+  y -= fontSizeBody * 1.2 + metricSpacing;
+  y -= draw(interpretations.rho, interpretationX, y, fontSizeSmall, page, font, grayMedium);
+  y -= interpretationSpacing;
 
-  y -= draw(
-    "Probabilidad Sistema Vacío (P0):",
-    metricX,
-    y,
-    fontSizeBody,
-    page,
-    fontBold
-  ); // <-- Pasar 'page'
-  draw(
-    formatNum(results.p0, 5),
-    metricValueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  ); // <-- Pasar 'page'
-  y -= fontSizeBody * 1.2 + 3;
+  // P0
+  y -= draw( "Probabilidad Sistema Vacío (P0):", metricX, y, fontSizeBody, page, fontBold );
+  draw( formatNum(results.p0, 5), metricValueX, y + fontSizeBody * 1.2, fontSizeBody, page );
+  y -= fontSizeBody * 1.2 + metricSpacing;
+  y -= draw(interpretations.p0, interpretationX, y, fontSizeSmall, page, font, grayMedium);
+  y -= interpretationSpacing;
 
-  y -= draw(
-    "Clientes Promedio en Sistema (Ls):",
-    metricX,
-    y,
-    fontSizeBody,
-    page,
-    fontBold
-  ); // <-- Pasar 'page'
-  draw(
-    `${formatNum(results.ls)} clientes`,
-    metricValueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  ); // <-- Pasar 'page'
-  y -= fontSizeBody * 1.2 + 3;
+  // Ls
+  y -= draw( "Clientes Promedio en Sistema (Ls):", metricX, y, fontSizeBody, page, fontBold );
+  draw( `${formatNum(results.ls)} clientes`, metricValueX, y + fontSizeBody * 1.2, fontSizeBody, page );
+  y -= fontSizeBody * 1.2 + metricSpacing;
+  y -= draw(interpretations.ls, interpretationX, y, fontSizeSmall, page, font, grayMedium);
+  y -= interpretationSpacing;
 
-  y -= draw(
-    "Clientes Promedio en Cola (Lq):",
-    metricX,
-    y,
-    fontSizeBody,
-    page,
-    fontBold
-  ); // <-- Pasar 'page'
-  draw(
-    `${formatNum(results.lq)} clientes`,
-    metricValueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  ); // <-- Pasar 'page'
-  y -= fontSizeBody * 1.2 + 3;
+  // Lq
+  y -= draw( "Clientes Promedio en Cola (Lq):", metricX, y, fontSizeBody, page, fontBold );
+  draw( `${formatNum(results.lq)} clientes`, metricValueX, y + fontSizeBody * 1.2, fontSizeBody, page );
+  y -= fontSizeBody * 1.2 + metricSpacing;
+  y -= draw(interpretations.lq, interpretationX, y, fontSizeSmall, page, font, grayMedium);
+  y -= interpretationSpacing;
 
-  y -= draw(
-    "Tiempo Promedio en Sistema (Ws):",
-    metricX,
-    y,
-    fontSizeBody,
-    page,
-    fontBold
-  ); // <-- Pasar 'page'
-  draw(
-    `${formatNum(results.ws)} uds. de tiempo`,
-    metricValueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  ); // <-- Pasar 'page'
-  y -= fontSizeBody * 1.2 + 3;
+  // Ws
+  y -= draw( "Tiempo Promedio en Sistema (Ws):", metricX, y, fontSizeBody, page, fontBold );
+  draw( `${formatNum(results.ws)} uds. de tiempo`, metricValueX, y + fontSizeBody * 1.2, fontSizeBody, page );
+  y -= fontSizeBody * 1.2 + metricSpacing;
+  y -= draw(interpretations.ws, interpretationX, y, fontSizeSmall, page, font, grayMedium);
+  y -= interpretationSpacing;
 
-  y -= draw(
-    "Tiempo Promedio en Cola (Wq):",
-    metricX,
-    y,
-    fontSizeBody,
-    page,
-    fontBold
-  ); // <-- Pasar 'page'
-  draw(
-    `${formatNum(results.wq)} uds. de tiempo`,
-    metricValueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  ); // <-- Pasar 'page'
-  y -= fontSizeBody * 1.2 + 3;
+  // Wq
+  y -= draw( "Tiempo Promedio en Cola (Wq):", metricX, y, fontSizeBody, page, fontBold );
+  draw( `${formatNum(results.wq)} uds. de tiempo`, metricValueX, y + fontSizeBody * 1.2, fontSizeBody, page );
+  y -= fontSizeBody * 1.2 + metricSpacing;
+  y -= draw(interpretations.wq, interpretationX, y, fontSizeSmall, page, font, grayMedium);
+  y -= interpretationSpacing;
 
-  if (results.lambdaEff !== undefined) {
-    y -= draw(
-      "Tasa Efectiva de Llegada (Lambda_eff):",
-      metricX,
-      y,
-      fontSizeBody,
-      page,
-      fontBold
-    ); // <-- Pasar 'page'
-    draw(
-      `${formatNum(results.lambdaEff)} clientes/ud. tiempo`,
-      metricValueX,
-      y + fontSizeBody * 1.2,
-      fontSizeBody,
-      page
-    ); // <-- Pasar 'page'
-    y -= fontSizeBody * 1.2 + 3;
+  // Métricas Finitas
+  if (results.modelType === 'finite') {
+    // LambdaEff
+    y -= draw('Tasa Efectiva de Llegada (Lambda_eff):', metricX, y, fontSizeBody, page, fontBold);
+    draw(`${formatNum(results.lambdaEff)} clientes/ud. tiempo`, metricValueX, y + fontSizeBody * 1.2, fontSizeBody, page);
+    y -= fontSizeBody * 1.2 + metricSpacing;
+    y -= draw(interpretations.lambdaEff, interpretationX, y, fontSizeSmall, page, font, grayMedium);
+    y -= interpretationSpacing;
+
+    // LambdaPerdida
+    y -= draw('Tasa de Llegada Perdida (Lambda_p):', metricX, y, fontSizeBody, page, fontBold);
+    draw(`${formatNum(results.lambdaPerdida)} clientes/ud. tiempo`, metricValueX, y + fontSizeBody * 1.2, fontSizeBody, page);
+    y -= fontSizeBody * 1.2 + metricSpacing;
+    y -= draw(interpretations.lambdaPerdida, interpretationX, y, fontSizeSmall, page, font, grayMedium);
+    y -= interpretationSpacing;
   }
   y -= 15;
 

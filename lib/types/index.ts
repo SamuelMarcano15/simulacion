@@ -20,6 +20,7 @@ export interface QueueModelResults {
   ws: number;          // Tiempo promedio de un cliente en el sistema (Ws) [cite: 160, 214]
   wq: number;          // Tiempo promedio de un cliente en la cola (Wq) [cite: 160, 214]
   lambdaEff?: number;  // Tasa efectiva de llegada (λ_ef), solo para modelo finito [cite: 210]
+  lambdaPerdida?: number;
   probabilities: ProbabilityDistribution[]; // Distribución de probabilidad Pn [cite: 14, 150, 195]
   modelType: 'infinite' | 'finite'; // Para identificar el modelo calculado
   params: QueueModelParams; // Guarda los parámetros usados para el cálculo
