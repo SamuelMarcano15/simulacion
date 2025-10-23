@@ -210,7 +210,7 @@ export default function Home() {
     {
       title: "Paso 2: Ingresa los Parámetros",
       targetId: "asistente-paso-2",
-      position: "top-left",
+      position: "bottom-left",
       content: (
         <p>
           Ahora, ingresa las tasas medias:
@@ -221,6 +221,8 @@ export default function Home() {
           clientes/hora).
           <br />• <strong>Capacidad (N)</strong>: Si elegiste cola finita, este
           es el número máximo total en el sistema.
+          <br />• Si ya ingresaste los datos requeridos, presiona el botón{" "}
+          <strong> "Calcular Métricas"</strong> .
         </p>
       ),
     },
@@ -229,7 +231,13 @@ export default function Home() {
       title: "Paso 3: ¡Resultados del Modelo!",
       targetId: "asistente-paso-3",
       position: "bottom-center",
-      content: ( <p> ¡Genial! Aquí están tus métricas clave. Te explicaré las más importantes: </p> ),
+      content: (
+        <p>
+          {" "}
+          ¡Genial! Aquí están tus métricas clave. Te explicaré las más
+          importantes:{" "}
+        </p>
+      ),
     },
 
     // Paso 3 (Explicación Rho y P0)
@@ -240,30 +248,50 @@ export default function Home() {
       content: (
         <div>
           <p className="mb-2">
-            <strong>Factor de Utilización (ρ):</strong> Muestra qué tan ocupado está el servidor.
-            <br />• <strong>Fórmula:</strong> <span dangerouslySetInnerHTML={renderMath("\\rho = \\lambda / \\mu")} />
-            <br />• <strong>Tu resultado ({formatNum(results?.rho)}):</strong> El servidor está ocupado un {formatNum((results?.rho ?? 0) * 100, 2)}% del tiempo.
+            <strong>Factor de Utilización (ρ):</strong> Muestra qué tan ocupado
+            está el servidor.
+            <br />• <strong>Fórmula:</strong>{" "}
+            <span
+              dangerouslySetInnerHTML={renderMath("\\rho = \\lambda / \\mu")}
+            />
+            <br />• <strong>Tu resultado ({formatNum(results?.rho)}):</strong>{" "}
+            El servidor está ocupado un{" "}
+            {formatNum((results?.rho ?? 0) * 100, 2)}% del tiempo.
             {selectedModel === "finite" && (
               <span className="block text-xs italic opacity-80">
                 {
                   "• En colas finitas, (ρ) puede ser > 1, pero solo mide la capacidad del servidor vs. la llegada, no la utilización real (que está limitada por N)."
                 }
-                </span>
+              </span>
             )}
           </p>
           <p>
-            <strong>Prob. Sistema Vacío (P₀):</strong> La probabilidad de que no haya nadie en el sistema.
+            <strong>Prob. Sistema Vacío (P₀):</strong> La probabilidad de que no
+            haya nadie en el sistema.
             {selectedModel === "infinite" ? (
               <>
-                <br />• <strong>Fórmula (Infinita):</strong> <span dangerouslySetInnerHTML={renderMath("P_0 = 1 - \\rho")} />
+                <br />• <strong>Fórmula (Infinita):</strong>{" "}
+                <span dangerouslySetInnerHTML={renderMath("P_0 = 1 - \\rho")} />
               </>
             ) : (
               <>
-                <br />• <strong>Fórmula (Finita):</strong> <span dangerouslySetInnerHTML={renderMath("P_0 = \\frac{1 - \\rho}{1 - \\rho^{N+1}}")} />
-                <span className="block text-xs italic opacity-80" dangerouslySetInnerHTML={renderMath("\\text{(Si } \\rho = 1, \\text{ es } P_0 = 1 / (N+1) \\text{)}")} />
+                <br />• <strong>Fórmula (Finita):</strong>{" "}
+                <span
+                  dangerouslySetInnerHTML={renderMath(
+                    "P_0 = \\frac{1 - \\rho}{1 - \\rho^{N+1}}"
+                  )}
+                />
+                <span
+                  className="block text-xs italic opacity-80"
+                  dangerouslySetInnerHTML={renderMath(
+                    "\\text{(Si } \\rho = 1, \\text{ es } P_0 = 1 / (N+1) \\text{)}"
+                  )}
+                />
               </>
             )}
-            <br />• <strong>Tu resultado ({formatNum(results?.p0, 5)}):</strong> Hay un {formatNum((results?.p0 ?? 0) * 100, 2)}% de probabilidad de que esté vacío.
+            <br />• <strong>Tu resultado ({formatNum(results?.p0, 5)}):</strong>{" "}
+            Hay un {formatNum((results?.p0 ?? 0) * 100, 2)}% de probabilidad de
+            que esté vacío.
           </p>
         </div>
       ),
@@ -276,30 +304,54 @@ export default function Home() {
       content: (
         <div>
           <p className="mb-2">
-            <strong>Clientes en Sistema (Ls):</strong> El número *promedio* de clientes en el sistema (en cola + siendo atendido).
+            <strong>Clientes en Sistema (Ls):</strong> El número *promedio* de
+            clientes en el sistema (en cola + siendo atendido).
             {selectedModel === "infinite" ? (
-                <>
-                  <br />• <strong>Fórmula (Infinita):</strong> <span dangerouslySetInnerHTML={renderMath("L_s = \\rho / (1 - \\rho)")} />
-                </>
-              ) : (
-                <>
-                  <br />• <strong>Fórmula (Finita):</strong> <span dangerouslySetInnerHTML={renderMath("L_s = \\sum_{n=0}^{N} n \\cdot P_n")} />
-                </>
-              )}
-            <br />• <strong>Tu resultado ({formatNum(results?.ls)}):</strong> En promedio, hay {formatNum(results?.ls)} clientes en el sistema.
+              <>
+                <br />• <strong>Fórmula (Infinita):</strong>{" "}
+                <span
+                  dangerouslySetInnerHTML={renderMath(
+                    "L_s = \\rho / (1 - \\rho)"
+                  )}
+                />
+              </>
+            ) : (
+              <>
+                <br />• <strong>Fórmula (Finita):</strong>{" "}
+                <span
+                  dangerouslySetInnerHTML={renderMath(
+                    "L_s = \\sum_{n=0}^{N} n \\cdot P_n"
+                  )}
+                />
+              </>
+            )}
+            <br />• <strong>Tu resultado ({formatNum(results?.ls)}):</strong> En
+            promedio, hay {formatNum(results?.ls)} clientes en el sistema.
           </p>
           <p>
-            <strong>Clientes en Cola (Lq):</strong> El número *promedio* de clientes solo en la cola.
+            <strong>Clientes en Cola (Lq):</strong> El número *promedio* de
+            clientes solo en la cola.
             {selectedModel === "infinite" ? (
-                <>
-                  <br />• <strong>Fórmula (Infinita):</strong> <span dangerouslySetInnerHTML={renderMath("L_q = \\rho^2 / (1 - \\rho)")} />
-                </>
-              ) : (
-                <>
-                  <br />• <strong>Fórmula (Finita):</strong> <span dangerouslySetInnerHTML={renderMath("L_q = L_s - (\\lambda_{eff} / \\mu)")} />
-                </>
-              )}
-            <br />• <strong>Tu resultado ({formatNum(results?.lq)}):</strong> En promedio, {formatNum(results?.lq)} clientes están esperando.
+              <>
+                <br />• <strong>Fórmula (Infinita):</strong>{" "}
+                <span
+                  dangerouslySetInnerHTML={renderMath(
+                    "L_q = \\rho^2 / (1 - \\rho)"
+                  )}
+                />
+              </>
+            ) : (
+              <>
+                <br />• <strong>Fórmula (Finita):</strong>{" "}
+                <span
+                  dangerouslySetInnerHTML={renderMath(
+                    "L_q = L_s - (\\lambda_{eff} / \\mu)"
+                  )}
+                />
+              </>
+            )}
+            <br />• <strong>Tu resultado ({formatNum(results?.lq)}):</strong> En
+            promedio, {formatNum(results?.lq)} clientes están esperando.
           </p>
         </div>
       ),
@@ -312,14 +364,34 @@ export default function Home() {
       content: (
         <div>
           <p className="mb-2">
-            <strong>Tiempo en Sistema (Ws):</strong> El tiempo *promedio* que un cliente pasa en total (esperando + servicio).
-            <br />• <strong>Fórmula (Ley de Little):</strong> <span dangerouslySetInnerHTML={renderMath(selectedModel === 'infinite' ? "W_s = L_s / \\lambda" : "W_s = L_s / \\lambda_{eff}")} />
-            <br />• <strong>Tu resultado ({formatNum(results?.ws)}):</strong> Un cliente pasa en promedio {formatNum(results?.ws)} unidades de tiempo en el sistema.
+            <strong>Tiempo en Sistema (Ws):</strong> El tiempo *promedio* que un
+            cliente pasa en total (esperando + servicio).
+            <br />• <strong>Fórmula (Ley de Little):</strong>{" "}
+            <span
+              dangerouslySetInnerHTML={renderMath(
+                selectedModel === "infinite"
+                  ? "W_s = L_s / \\lambda"
+                  : "W_s = L_s / \\lambda_{eff}"
+              )}
+            />
+            <br />• <strong>Tu resultado ({formatNum(results?.ws)}):</strong> Un
+            cliente pasa en promedio {formatNum(results?.ws)} unidades de tiempo
+            en el sistema.
           </p>
           <p>
-            <strong>Tiempo en Cola (Wq):</strong> El tiempo *promedio* que un cliente pasa *esperando* en la cola.
-            <br />• <strong>Fórmula (Ley de Little):</strong> <span dangerouslySetInnerHTML={renderMath(selectedModel === 'infinite' ? "W_q = L_q / \\lambda" : "W_q = L_q / \\lambda_{eff}")} />
-            <br />• <strong>Tu resultado ({formatNum(results?.wq)}):</strong> Un cliente espera un promedio de {formatNum(results?.wq)} unidades de tiempo.
+            <strong>Tiempo en Cola (Wq):</strong> El tiempo *promedio* que un
+            cliente pasa *esperando* en la cola.
+            <br />• <strong>Fórmula (Ley de Little):</strong>{" "}
+            <span
+              dangerouslySetInnerHTML={renderMath(
+                selectedModel === "infinite"
+                  ? "W_q = L_q / \\lambda"
+                  : "W_q = L_q / \\lambda_{eff}"
+              )}
+            />
+            <br />• <strong>Tu resultado ({formatNum(results?.wq)}):</strong> Un
+            cliente espera un promedio de {formatNum(results?.wq)} unidades de
+            tiempo.
           </p>
         </div>
       ),
@@ -332,23 +404,41 @@ export default function Home() {
             targetId: "asistente-paso-3",
             position: "bottom-center" as AssistantPosition,
             content: (
-              <div> {/* --- MODIFICADO ESTE BLOQUE --- */}
+              <div>
+                {" "}
+                {/* --- MODIFICADO ESTE BLOQUE --- */}
                 <p className="mb-2">
-                  <strong>Tasa Efectiva de Llegada (λeff):</strong> La tasa *real* de clientes que logran entrar al sistema.
-                  <br />• <strong>Fórmula:</strong> <span dangerouslySetInnerHTML={renderMath("\\lambda_{eff} = \\lambda (1 - P_N)")} />
-                  <br />• <strong>Significado:</strong> De los {results?.params.lambda} clientes que llegan, solo <strong>{formatNum(results?.lambdaEff)}</strong> logran entrar en promedio.
+                  <strong>Tasa Efectiva de Llegada (λeff):</strong> La tasa
+                  *real* de clientes que logran entrar al sistema.
+                  <br />• <strong>Fórmula:</strong>{" "}
+                  <span
+                    dangerouslySetInnerHTML={renderMath(
+                      "\\lambda_{eff} = \\lambda (1 - P_N)"
+                    )}
+                  />
+                  <br />• <strong>Significado:</strong> De los{" "}
+                  {results?.params.lambda} clientes que llegan, solo{" "}
+                  <strong>{formatNum(results?.lambdaEff)}</strong> logran entrar
+                  en promedio.
                 </p>
                 <p>
                   <strong>Tasa de Llegada Perdida (λp):</strong>
-                  <br />• <strong>Fórmula:</strong> <span dangerouslySetInnerHTML={renderMath("\\lambda_p = \\lambda - \\lambda_{eff}")} />
-                  <br />• <strong>Significado:</strong> En promedio, <strong>{formatNum(results?.lambdaPerdida)}</strong> clientes son rechazados porque el sistema está lleno.
+                  <br />• <strong>Fórmula:</strong>{" "}
+                  <span
+                    dangerouslySetInnerHTML={renderMath(
+                      "\\lambda_p = \\lambda - \\lambda_{eff}"
+                    )}
+                  />
+                  <br />• <strong>Significado:</strong> En promedio,{" "}
+                  <strong>{formatNum(results?.lambdaPerdida)}</strong> clientes
+                  son rechazados porque el sistema está lleno.
                 </p>
               </div>
             ),
           },
         ]
       : []),
-    
+
     // Paso 7 (Tabla Pn)
     {
       title: "Paso 4: Distribución de Probabilidad",
@@ -504,37 +594,39 @@ export default function Home() {
               <ProbabilityTable results={results} />
             </div>
 
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
-              className="flex justify-center gap-4 mt-8"
-              id="asistente-paso-5"
-            >
-              <Button
-                variant="bordered"
-                color="primary"
-                className="border-unimar-primary text-unimar-primary"
-                onPress={handleGeneratePdf}
-                startContent={
-                  !isGeneratingPdf ? <Icon icon="ph:file-pdf-bold" /> : null
-                }
-                isLoading={isGeneratingPdf}
-                isDisabled={!results || isLoading || isGeneratingPdf}
+            <div id="asistente-paso-5">
+              {/* 2. Tu motion.div original va DENTRO, pero sin el ID */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="flex justify-center bg-white rounded-md py-4 shadow-md  gap-4 mt-8"
               >
-                {isGeneratingPdf ? "Generando..." : "Generar Reporte PDF"}
-              </Button>
-              <Button
-                variant="bordered"
-                color="secondary"
-                className="border-unimar-secondary text-unimar-secondary"
-                onPress={handlePrint}
-                startContent={<Icon icon="ph:printer-bold" />}
-                isDisabled={!results || isLoading || isGeneratingPdf}
-              >
-                Imprimir Resultados
-              </Button>
-            </motion.div>
+                <Button
+                  variant="bordered"
+                  color="primary"
+                  className="border-unimar-primary text-unimar-primary hover:bg-unimar-primary hover:text-white"
+                  onPress={handleGeneratePdf}
+                  startContent={
+                    !isGeneratingPdf ? <Icon icon="ph:file-pdf-bold" /> : null
+                  }
+                  isLoading={isGeneratingPdf}
+                  isDisabled={!results || isLoading || isGeneratingPdf}
+                >
+                  {isGeneratingPdf ? "Generando..." : "Generar Reporte PDF"}
+                </Button>
+                <Button
+                  variant="bordered"
+                  color="secondary"
+                  className="border-unimar-secondary text-unimar-secondary hover:bg-unimar-primary hover:text-white"
+                  onPress={handlePrint}
+                  startContent={<Icon icon="ph:printer-bold" />}
+                  isDisabled={!results || isLoading || isGeneratingPdf}
+                >
+                  Imprimir Resultados
+                </Button>
+              </motion.div>
+            </div>
           </>
         )}
       </div>

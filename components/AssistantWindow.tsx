@@ -1,19 +1,19 @@
 // app/components/AssistantWindow.tsx
 "use client";
 
-import React from 'react';
-import { Card, CardBody, CardFooter, Button, Divider } from '@heroui/react';
-import { motion } from 'framer-motion';
-import { Icon } from '@iconify/react';
+import React from "react";
+import { Card, CardBody, CardFooter, Button, Divider } from "@heroui/react";
+import { motion } from "framer-motion";
+import { Icon } from "@iconify/react";
 
 // 1. Definir los tipos de posición que aceptaremos
 export type AssistantPosition =
-  | 'top-left'
-  | 'top-right'
-  | 'bottom-left'
-  | 'bottom-right'
-  | 'bottom-center'
-  | 'center-left';
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right"
+  | "bottom-center"
+  | "center-left";
 
 interface AssistantWindowProps {
   title: string;
@@ -29,19 +29,19 @@ interface AssistantWindowProps {
 // 3. Función helper para obtener las clases de Tailwind según la posición
 const getPositionClasses = (pos: AssistantPosition): string => {
   switch (pos) {
-    case 'top-left':
-      return 'top-4 left-4';
-    case 'top-right':
-      return 'top-4 right-4';
-    case 'bottom-left':
-      return 'bottom-4 left-4';
-    case 'bottom-center':
-      return 'bottom-4 left-1/2 -translate-x-1/2'; // Centrado horizontal
-    case 'center-left':
-      return 'top-1/2 left-4 -translate-y-1/2'; // Centrado vertical
-    case 'bottom-right':
+    case "top-left":
+      return "top-4 left-4";
+    case "top-right":
+      return "top-4 right-4";
+    case "bottom-left":
+      return "bottom-4 left-4";
+    case "bottom-center":
+      return "bottom-4 left-1/2 -translate-x-1/2"; // Centrado horizontal
+    case "center-left":
+      return "top-1/2 left-4 -translate-y-1/2"; // Centrado vertical
+    case "bottom-right":
     default:
-      return 'bottom-4 right-4';
+      return "bottom-4 right-4";
   }
 };
 
@@ -53,23 +53,24 @@ export const AssistantWindow: React.FC<AssistantWindowProps> = ({
   onNext,
   onPrev,
   onSkip,
-  position // Recibir la prop
+  position, // Recibir la prop
 }) => {
   return (
     <motion.div
       // 4. Aplicar las clases dinámicas de posición y eliminar la altura fija 'h-60'
-      className={`fixed ${getPositionClasses(position)} w-full max-w-lg z-[9999] no-print`}
+      className={`fixed ${getPositionClasses(
+        position
+      )} w-full max-w-lg z-[9999] no-print`}
       // 5. Cambiar la animación a un fade-in/slide-up genérico
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
       // Key prop para forzar la re-animación si la posición cambia (opcional pero bueno)
-      key={position} 
+      key={position}
     >
       <Card className="shadow-2xl border-2 border-unimar-primary bg-white">
         <CardBody className="p-5 relative">
-          
           <Button
             isIconOnly
             variant="light"
@@ -82,8 +83,13 @@ export const AssistantWindow: React.FC<AssistantWindowProps> = ({
           </Button>
 
           <div className="flex items-center gap-3 mb-2 pr-6">
-            <Icon icon="ph:chalkboard-teacher-bold" className="text-unimar-primary text-3xl" />
-            <h3 className="text-lg font-bold font-headings text-unimar-primary">{title}</h3>
+            <Icon
+              icon="ph:chalkboard-teacher-bold"
+              className="text-unimar-primary text-3xl"
+            />
+            <h3 className="text-lg font-bold font-headings text-unimar-primary">
+              {title}
+            </h3>
           </div>
           <Divider className="my-2" />
           {/* 6. Aumentar el max-h para más contenido, h-60 era el problema */}
@@ -96,7 +102,9 @@ export const AssistantWindow: React.FC<AssistantWindowProps> = ({
             Omitir Guía
           </Button>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">{step + 1} / {totalSteps}</span>
+            <span className="text-xs text-gray-500">
+              {step + 1} / {totalSteps}
+            </span>
             <Button
               size="sm"
               variant="ghost"
@@ -110,10 +118,9 @@ export const AssistantWindow: React.FC<AssistantWindowProps> = ({
               size="sm"
               color="primary"
               className="bg-unimar-primary text-white"
-              onPress={onNext}
-              isDisabled={step === totalSteps - 1} // Ajuste: Habilitar el último 'Siguiente' para que se convierta en 'Finalizar' o se oculte
+              onPress={onNext} // Ajuste: Habilitar el último 'Siguiente' para que se convierta en 'Finalizar' o se oculte
             >
-              {step === totalSteps - 1 ? 'Finalizar' : 'Siguiente'}
+              {step === totalSteps - 1 ? "Finalizar" : "Siguiente"}
             </Button>
           </div>
         </CardFooter>
