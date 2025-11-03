@@ -23,7 +23,7 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
   const [muStr, setMuStr] = useState("");
   const [cStr, setCStr] = useState(""); // Estado para 'c'
   const [nStr, setNStr] = useState(""); // Estado para 'N'
-  
+
   const [errors, setErrors] = useState<{
     lambda?: string;
     mu?: string;
@@ -32,19 +32,21 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
   }>({});
 
   // --- NUEVAS CONDICIONES PARA VISIBILIDAD ---
-  const showC_Input = selectedModel === 'MMc' || selectedModel === 'MMcN';
-  const showN_Input = selectedModel === 'MM1N' || selectedModel === 'MMcN';
+  const showC_Input = selectedModel === "MMc" || selectedModel === "MMcN";
+  const showN_Input = selectedModel === "MM1N" || selectedModel === "MMcN";
 
   const validateAndSubmit = () => {
-    const newErrors: { lambda?: string; mu?: string; c?: string; n?: string } = {};
+    const newErrors: { lambda?: string; mu?: string; c?: string; n?: string } =
+      {};
     const lambda = parseFloat(lambdaStr);
     const mu = parseFloat(muStr);
     const c = parseInt(cStr, 10);
     const N = parseInt(nStr, 10);
 
-    if (isNaN(lambda) || lambda <= 0) newErrors.lambda = "λ debe ser un número positivo.";
+    if (isNaN(lambda) || lambda <= 0)
+      newErrors.lambda = "λ debe ser un número positivo.";
     if (isNaN(mu) || mu <= 0) newErrors.mu = "μ debe ser un número positivo.";
-    
+
     let c_val = 1; // Por defecto para M/M/1
     if (showC_Input) {
       if (isNaN(c) || c <= 1 || !Number.isInteger(c)) {
@@ -53,18 +55,21 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
         c_val = c; // Usar el valor 'c' validado
       }
     }
-    
+
     if (showN_Input) {
       if (isNaN(N) || !Number.isInteger(N)) {
         newErrors.n = "N debe ser un número entero.";
       } else if (N < c_val) {
-         newErrors.n = `N debe ser mayor o igual a c (N ≥ ${c_val}).`;
+        newErrors.n = `N debe ser mayor o igual a c (N ≥ ${c_val}).`;
       }
     }
-    
-    if (!showN_Input && !isNaN(lambda) && !isNaN(mu) && !isNaN(c_val)) { // Colas infinitas
-      if (lambda >= (c_val * mu)) {
-        newErrors.lambda = `Sistema inestable (λ ≥ c*μ). λ debe ser < ${c_val * mu}.`;
+
+    if (!showN_Input && !isNaN(lambda) && !isNaN(mu) && !isNaN(c_val)) {
+      // Colas infinitas
+      if (lambda >= c_val * mu) {
+        newErrors.lambda = `Sistema inestable (λ ≥ c*μ). λ debe ser < ${
+          c_val * mu
+        }.`;
       }
     }
 
@@ -85,11 +90,17 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
     setNStr("");
     setErrors({});
   };
-  
-  const handleNewCalculation = () => { window.location.reload(); };
+
+  const handleNewCalculation = () => {
+    window.location.reload();
+  };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.1 }}
+    >
       <Card className="shadow-lg border border-gray-200 relative">
         <Button
           color="default"
@@ -111,29 +122,37 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Input
               label="Tasa de Llegada (λ)"
-              placeholder="Ej: 10 (clientes/hora)"
+              placeholder="Ej: 4 (clientes/hora)"
               variant="bordered"
-              value={lambdaStr} onValueChange={setLambdaStr}
-              isInvalid={!!errors.lambda} errorMessage={errors.lambda}
-              type="number" min="0" step="any"
-              startContent={<span className="text-gray-500">λ =</span>}
+              value={lambdaStr}
+              onValueChange={setLambdaStr}
+              isInvalid={!!errors.lambda}
+              errorMessage={errors.lambda}
+              type="number"
+              min="0"
+              step="any"
+              startContent={<span className="text-gray-500"> =</span>}
             />
             <Input
               label="Tasa de Servicio (μ) (por servidor)" // Texto actualizado
               placeholder="Ej: 5 (clientes/hora)"
               variant="bordered"
-              value={muStr} onValueChange={setMuStr}
-              isInvalid={!!errors.mu} errorMessage={errors.mu}
-              type="number" min="0" step="any"
-              startContent={<span className="text-gray-500">μ =</span>}
+              value={muStr}
+              onValueChange={setMuStr}
+              isInvalid={!!errors.mu}
+              errorMessage={errors.mu}
+              type="number"
+              min="0"
+              step="any"
+              startContent={<span className="text-gray-500"> =</span>}
             />
-            
+
             {/* Input Condicional para 'c' */}
             <AnimatePresence>
               {showC_Input && (
                 <motion.div
                   initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: 'auto' }}
+                  animate={{ opacity: 1, width: "auto" }}
                   exit={{ opacity: 0, width: 0, margin: 0 }}
                   transition={{ duration: 0.3 }}
                 >
@@ -141,21 +160,25 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
                     label="Servidores (c)"
                     placeholder="Ej: 4"
                     variant="bordered"
-                    value={cStr} onValueChange={setCStr}
-                    isInvalid={!!errors.c} errorMessage={errors.c}
-                    type="number" min="2" step="1"
-                    startContent={<span className="text-gray-500">c =</span>}
+                    value={cStr}
+                    onValueChange={setCStr}
+                    isInvalid={!!errors.c}
+                    errorMessage={errors.c}
+                    type="number"
+                    min="2"
+                    step="1"
+                    startContent={<span className="text-gray-500">=</span>}
                   />
                 </motion.div>
               )}
             </AnimatePresence>
-            
+
             {/* Input Condicional para 'N' */}
             <AnimatePresence>
               {showN_Input && (
                 <motion.div
                   initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: 'auto' }}
+                  animate={{ opacity: 1, width: "auto" }}
                   exit={{ opacity: 0, width: 0, margin: 0 }}
                   transition={{ duration: 0.3 }}
                 >
@@ -163,10 +186,14 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
                     label="Capacidad Sistema (N)"
                     placeholder="Ej: 20 (c <= N)"
                     variant="bordered"
-                    value={nStr} onValueChange={setNStr}
-                    isInvalid={!!errors.n} errorMessage={errors.n}
-                    type="number" min="1" step="1"
-                    startContent={<span className="text-gray-500">N =</span>}
+                    value={nStr}
+                    onValueChange={setNStr}
+                    isInvalid={!!errors.n}
+                    errorMessage={errors.n}
+                    type="number"
+                    min="1"
+                    step="1"
+                    startContent={<span className="text-gray-500"> =</span>}
                   />
                 </motion.div>
               )}
@@ -187,7 +214,9 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
               className="bg-unimar-primary hover:bg-unimar-secondary text-white font-bold"
               onPress={validateAndSubmit}
               isLoading={isLoading}
-              startContent={ !isLoading ? <Icon icon="ph:calculator-fill" /> : null }
+              startContent={
+                !isLoading ? <Icon icon="ph:calculator-fill" /> : null
+              }
             >
               {isLoading ? "Calculando..." : "Calcular Métricas"}
             </Button>
