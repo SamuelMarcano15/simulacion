@@ -1,12 +1,16 @@
-"use client"; // Necesario para componentes interactivos
+// components/ModelSelector.tsx
+"use client";
 
 import React from 'react';
 import { Tabs, Tab } from "@heroui/react";
 import { motion } from 'framer-motion';
 
+// --- MODIFICADO: Tipo para 4 modelos ---
+export type ModelType = 'MM1' | 'MM1N' | 'MMc' | 'MMcN';
+
 interface ModelSelectorProps {
-  selectedModel: 'infinite' | 'finite';
-  setSelectedModel: (model: 'infinite' | 'finite') => void;
+  selectedModel: ModelType;
+  setSelectedModel: (model: ModelType) => void;
 }
 
 export const ModelSelector: React.FC<ModelSelectorProps> = ({ selectedModel, setSelectedModel }) => {
@@ -20,12 +24,15 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ selectedModel, set
       <Tabs
         aria-label="Seleccionar Modelo de Cola"
         selectedKey={selectedModel}
-        onSelectionChange={(key) => setSelectedModel(key as 'infinite' | 'finite')}
-        color="primary" // Usa el color primario de HeroUI (configurable globalmente o adaptar a UNIMAR si es necesario)
+        onSelectionChange={(key) => setSelectedModel(key as ModelType)}
+        color="primary"
         size="lg"
+        variant="underlined" // Un estilo diferente para 4 tabs
       >
-        <Tab key="infinite" title="Modelo M/M/1 (Cola Infinita)" />
-        <Tab key="finite" title="Modelo M/M/1/N (Cola Finita)" />
+        <Tab key="MM1" title="M/M/1 (Infinita)" />
+        <Tab key="MM1N" title="M/M/1/N (Finita)" />
+        <Tab key="MMc" title="M/M/c (Infinita)" />
+        <Tab key="MMcN" title="M/M/c/N (Finita)" />
       </Tabs>
     </motion.div>
   );

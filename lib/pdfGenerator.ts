@@ -1,3 +1,4 @@
+// lib/pdfGenerator.ts
 import {
   PDFDocument,
   rgb,
@@ -6,12 +7,11 @@ import {
   PageSizes,
   PDFPage,
 } from "pdf-lib";
-import { QueueModelResults } from "@/lib/types"; // Asegúrate que la ruta sea correcta
+import { QueueModelResults } from "@/lib/types";
 
 // Helper para formatear números en el PDF
 const formatNum = (num?: number, decimals = 4): string => {
   if (num === undefined || num === null || isNaN(num)) return "-";
-  // Considerar notación científica para números muy pequeños si es necesario
   if (Math.abs(num) < 1e-6 && num !== 0) {
     return num.toExponential(decimals > 0 ? decimals - 1 : 0);
   }
@@ -25,12 +25,23 @@ const unimarTextDark = rgb(0.149, 0.149, 0.149); // #262626
 const grayLight = rgb(0.9, 0.9, 0.9);
 const grayMedium = rgb(0.5, 0.5, 0.5);
 
+// Helper para título del modelo
+const getModelTitle = (results: QueueModelResults): string => {
+  const { c, N } = results.params;
+  switch (results.modelType) {
+    case 'MM1': return 'M/M/1 (Cola Infinita)';
+    case 'MM1N': return `M/M/1/${N} (Cola Finita)`;
+    case 'MMc': return `M/M/${c} (Cola Infinita)`;
+    case 'MMcN': return `M/M/${c}/${N} (Cola Finita)`;
+    default: return 'Resultados del Modelo';
+  }
+}
+
 // --- Función Principal ---
 export async function generatePdfReport(
   results: QueueModelResults
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
-  // --- CORRECCIÓN: Declarar 'page' con 'let' para poder reasignarla ---
   let page = pdfDoc.addPage(PageSizes.A4);
   const { width, height } = page.getSize();
 
@@ -49,18 +60,16 @@ export async function generatePdfReport(
   const contentWidth = width - 2 * margin;
   let y = height - margin - fontSizeTitle;
 
-  // --- CORRECCIÓN: Modificar 'draw' para aceptar la página actual ---
   const draw = (
     text: string,
     xOffset: number,
     currentY: number,
     size: number,
-    currentPage: PDFPage, // <-- Añadir parámetro para la página
+    currentPage: PDFPage,
     fontToUse: PDFFont = font,
     color: ReturnType<typeof rgb> = unimarTextDark
   ): number => {
     currentPage.drawText(text, {
-      // <-- Usar currentPage
       x: margin + xOffset,
       y: currentY,
       font: fontToUse,
@@ -71,110 +80,60 @@ export async function generatePdfReport(
     return size * 1.2;
   };
 
+  // Objeto de Interpretaciones
   const interpretations = {
-    rho: `Significa que el servidor está ocupado el ${formatNum((results.rho ?? 0) * 100, 2)}% del tiempo.`,
+    rho: `Significa que, en promedio, cada servidor está ocupado el ${formatNum((results.rho ?? 0) * 100, 2)}% del tiempo.`,
     p0: `Hay un ${formatNum((results.p0 ?? 0) * 100, 2)}% de probabilidad de que el sistema esté completamente vacío (sin clientes).`,
     ls: `Indica que, en cualquier momento, se espera encontrar un promedio de ${formatNum(results.ls, 4)} clientes en el sistema (esperando en cola + siendo atendidos).`,
     lq: `Indica que, en cualquier momento, se espera encontrar un promedio de ${formatNum(results.lq, 4)} clientes esperando en la cola.`,
     ws: `Un cliente (desde que llega hasta que se va) pasa un promedio de ${formatNum(results.ws, 4)} unidades de tiempo en el sistema.`,
-    wq: `Un cliente pasa un promedio de ${formatNum(results.wq, 4)} unidades de tiempo solo esperando en la cola (antes de ser atendido).`,
+    wq: `Un cliente pasa un promedio de ${formatNum(results.wq, 4)} unidades de tiempo solo esperando en la cola.`,
+    cBarra: `En promedio, ${formatNum(results.cBarra, 4)} de los ${results.params.c || 1} servidores están inactivos (libres).`,
     lambdaEff: `De los ${results.params.lambda} clientes que llegan por unidad de tiempo, solo ${formatNum(results.lambdaEff, 4)} logran entrar al sistema.`,
-    lambdaPerdida: `En promedio, ${formatNum(results.lambdaPerdida, 4)} clientes por unidad de tiempo son rechazados o se van porque el sistema está lleno (N=${results.params.N}).`
+    lambdaPerdida: `En promedio, ${formatNum(results.lambdaPerdida, 4)} clientes por unidad de tiempo son rechazados porque el sistema está lleno (N=${results.params.N}).`
   };
-
+  
   // --- Título ---
-  y -= draw(
-    "Reporte de Análisis de Línea de Espera",
-    0,
-    y,
-    fontSizeTitle,
-    page,
-    fontBold,
-    unimarPrimary
-  ); // <-- Pasar 'page'
+  y -= draw( `Reporte de Análisis: ${getModelTitle(results)}`, 0, y, fontSizeTitle, page, fontBold, unimarPrimary );
   y -= 15;
 
   // --- Parámetros Usados ---
-  y -= draw(
-    "Parámetros de Entrada",
-    0,
-    y,
-    fontSizeHeader,
-    page,
-    fontBold,
-    unimarSecondary
-  ); // <-- Pasar 'page'
+  y -= draw( "Parámetros de Entrada", 0, y, fontSizeHeader, page, fontBold, unimarSecondary );
   y -= 5;
   const paramX = 10;
-  const valueX = 180;
-  y -= draw("Modelo:", paramX, y, fontSizeBody, page, fontBold); // <-- Pasar 'page'
-  draw(
-    `${results.modelType === "finite" ? `M/M/1/${results.params.N}` : "M/M/1"}`,
-    valueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  ); // <-- Pasar 'page'
+  const valueX = 220;
+  
+  y -= draw('Tasa de Llegada (Lambda):', paramX, y, fontSizeBody, page, fontBold);
+  draw(`${results.params.lambda} (clientes/ud. tiempo)`, valueX, y + fontSizeBody * 1.2, fontSizeBody, page);
   y -= fontSizeBody * 1.2 + 3;
 
-  y -= draw(
-    "Tasa de Llegada (Lambda):",
-    paramX,
-    y,
-    fontSizeBody,
-    page,
-    fontBold
-  ); // <-- Pasar 'page'
-  draw(
-    `${results.params.lambda} (clientes/ud. tiempo)`,
-    valueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  ); // <-- Pasar 'page'
+  y -= draw('Tasa de Servicio (Mu por Servidor):', paramX, y, fontSizeBody, page, fontBold);
+  draw(`${results.params.mu} (clientes/ud. tiempo)`, valueX, y + fontSizeBody * 1.2, fontSizeBody, page);
   y -= fontSizeBody * 1.2 + 3;
 
-  y -= draw("Tasa de Servicio (Mu):", paramX, y, fontSizeBody, page, fontBold); // <-- Pasar 'page'
-  draw(
-    `${results.params.mu} (clientes/ud. tiempo)`,
-    valueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  ); // <-- Pasar 'page'
-  y -= fontSizeBody * 1.2 + 3;
-
-  if (results.modelType === "finite" && results.params.N) {
-    y -= draw(
-      "Capacidad Sistema (N):",
-      paramX,
-      y,
-      fontSizeBody,
-      page,
-      fontBold
-    ); // <-- Pasar 'page'
-    draw(
-      `${results.params.N}`,
-      valueX,
-      y + fontSizeBody * 1.2,
-      fontSizeBody,
-      page
-    ); // <-- Pasar 'page'
+  if (results.params.c && results.params.c > 1) {
+    y -= draw('Número de Servidores (c):', paramX, y, fontSizeBody, page, fontBold);
+    draw(`${results.params.c}`, valueX, y + fontSizeBody * 1.2, fontSizeBody, page);
+    y -= fontSizeBody * 1.2 + 3;
+  }
+  if (results.params.N) {
+    y -= draw('Capacidad Sistema (N):', paramX, y, fontSizeBody, page, fontBold);
+    draw(`${results.params.N}`, valueX, y + fontSizeBody * 1.2, fontSizeBody, page);
     y -= fontSizeBody * 1.2 + 3;
   }
   y -= 15;
 
-  // --- Métricas Calculadas ---
-y -= draw( "Métricas de Desempeño", 0, y, fontSizeHeader, page, fontBold, unimarSecondary );
+  // --- Métricas Calculadas (CON INTERPRETACIONES) ---
+  y -= draw( "Métricas de Desempeño", 0, y, fontSizeHeader, page, fontBold, unimarSecondary );
   y -= 5;
   const metricX = 10;
-  const metricValueX = 250;
+  const metricValueX = 270;
   const interpretationX = 15;
   const metricSpacing = 3;
   const interpretationSpacing = 8;
 
   // Rho
-  y -= draw( "Factor de Utilización (Rho):", metricX, y, fontSizeBody, page, fontBold );
+  y -= draw( "Utilización por Servidor (Rho):", metricX, y, fontSizeBody, page, fontBold );
   draw( formatNum(results.rho), metricValueX, y + fontSizeBody * 1.2, fontSizeBody, page );
   y -= fontSizeBody * 1.2 + metricSpacing;
   y -= draw(interpretations.rho, interpretationX, y, fontSizeSmall, page, font, grayMedium);
@@ -215,8 +174,19 @@ y -= draw( "Métricas de Desempeño", 0, y, fontSizeHeader, page, fontBold, unim
   y -= draw(interpretations.wq, interpretationX, y, fontSizeSmall, page, font, grayMedium);
   y -= interpretationSpacing;
 
+  // --- MODIFICACIÓN: cBarra (Servidores Inactivos) ---
+  if (results.cBarra !== undefined) {
+    // Reemplazar 'c̄' por 'c-barra'
+    y -= draw('Servidores Inactivos Promedio (c-barra):', metricX, y, fontSizeBody, page, fontBold);
+    draw(`${formatNum(results.cBarra, 4)} servidores`, metricValueX, y + fontSizeBody * 1.2, fontSizeBody, page);
+    y -= fontSizeBody * 1.2 + metricSpacing;
+    y -= draw(interpretations.cBarra, interpretationX, y, fontSizeSmall, page, font, grayMedium);
+    y -= interpretationSpacing;
+  }
+  // --- FIN MODIFICACIÓN ---
+
   // Métricas Finitas
-  if (results.modelType === 'finite') {
+  if (results.modelType === 'MM1N' || results.modelType === 'MMcN') {
     // LambdaEff
     y -= draw('Tasa Efectiva de Llegada (Lambda_eff):', metricX, y, fontSizeBody, page, fontBold);
     draw(`${formatNum(results.lambdaEff)} clientes/ud. tiempo`, metricValueX, y + fontSizeBody * 1.2, fontSizeBody, page);
@@ -233,19 +203,9 @@ y -= draw( "Métricas de Desempeño", 0, y, fontSizeHeader, page, fontBold, unim
   }
   y -= 15;
 
-  // --- Tabla de Probabilidades ---
-  y -= draw(
-    "Distribución de Probabilidad P(n)",
-    0,
-    y,
-    fontSizeHeader,
-    page,
-    fontBold,
-    unimarSecondary
-  ); // <-- Pasar 'page'
+  // --- Tabla de Probabilidades (Lógica de paginación sin cambios) ---
+  y -= draw( "Distribución de Probabilidad P(n)", 0, y, fontSizeHeader, page, fontBold, unimarSecondary );
   y -= 8;
-
-  const tableTopY = y;
   const col1X = margin;
   const col2X = margin + 60;
   const col3X = margin + 180;
@@ -254,14 +214,11 @@ y -= draw( "Métricas de Desempeño", 0, y, fontSizeHeader, page, fontBold, unim
   const rowHeight = tableRowSize * 1.4;
   const tableBottomMargin = margin + 30;
 
-  // Dibujar encabezados una vez
-  draw("n", col1X - margin, y, tableHeaderSize, page, fontBold); // <-- Pasar 'page'
-  draw("P(n)", col2X - margin, y, tableHeaderSize, page, fontBold); // <-- Pasar 'page'
-  y -= draw("P(acumulada)", col3X - margin, y, tableHeaderSize, page, fontBold); // <-- Pasar 'page'
+  draw("n", col1X - margin, y, tableHeaderSize, page, fontBold);
+  draw("P(n)", col2X - margin, y, tableHeaderSize, page, fontBold);
+  y -= draw("P(acumulada)", col3X - margin, y, tableHeaderSize, page, fontBold);
   y -= 4;
-
   page.drawLine({
-    // <-- Dibujar línea en la 'page' actual
     start: { x: margin, y: y },
     end: { x: width - margin, y: y },
     thickness: 1,
@@ -269,81 +226,43 @@ y -= draw( "Métricas de Desempeño", 0, y, fontSizeHeader, page, fontBold, unim
   });
   y -= 6;
 
-  // Dibujar filas de la tabla
   results.probabilities.forEach((prob, index) => {
-    // --- CORRECCIÓN PAGINACIÓN ---
     if (y < tableBottomMargin) {
-      page = pdfDoc.addPage(PageSizes.A4); // Reasignar la variable 'page' externa
-      y = height - margin; // Reasignar la variable 'y' externa
-      // Opcional: Redibujar encabezados en la nueva página
-      draw("n", col1X - margin, y, tableHeaderSize, page, fontBold);
-      draw("P(n)", col2X - margin, y, tableHeaderSize, page, fontBold);
-      y -= draw(
-        "P(acumulada)",
-        col3X - margin,
-        y,
-        tableHeaderSize,
-        page,
-        fontBold
-      );
-      y -= 4;
-      page.drawLine({
-        start: { x: margin, y: y },
-        end: { x: width - margin, y: y },
-        thickness: 1,
-        color: unimarSecondary,
-      });
-      y -= 6;
+        page = pdfDoc.addPage(PageSizes.A4);
+        y = height - margin;
+        // Redibujar encabezados
+        draw("n", col1X - margin, y, tableHeaderSize, page, fontBold);
+        draw("P(n)", col2X - margin, y, tableHeaderSize, page, fontBold);
+        y -= draw( "P(acumulada)", col3X - margin, y, tableHeaderSize, page, fontBold );
+        y -= 4;
+        page.drawLine({
+           start: { x: margin, y: y }, end: { x: width - margin, y: y },
+           thickness: 1, color: unimarSecondary,
+        });
+        y -= 6;
     }
-
     const currentLineY = y;
-    const bgColor = index % 2 === 0 ? grayLight : rgb(1, 1, 1); // Fondo alternado suave
-
-    // Dibujar fondo de fila (opcional)
+    const bgColor = index % 2 === 0 ? grayLight : rgb(1, 1, 1);
     page.drawRectangle({
-      x: margin,
-      y: y - rowHeight + 2, // Ajustar posición Y para el rectángulo
-      width: contentWidth,
-      height: rowHeight,
-      color: bgColor,
-      opacity: 0.3,
+      x: margin, y: y - rowHeight + 2, width: contentWidth,
+      height: rowHeight, color: bgColor, opacity: 0.3,
     });
-
     draw(`${prob.n}`, col1X - margin, currentLineY, tableRowSize, page);
-    draw(
-      formatNum(prob.pn, 5),
-      col2X - margin,
-      currentLineY,
-      tableRowSize,
-      page
-    );
-    draw(
-      formatNum(prob.cumulativePn, 5),
-      col3X - margin,
-      currentLineY,
-      tableRowSize,
-      page
-    );
+    draw( formatNum(prob.pn, 5), col2X - margin, currentLineY, tableRowSize, page );
+    draw( formatNum(prob.cumulativePn, 5), col3X - margin, currentLineY, tableRowSize, page );
     y -= rowHeight;
   });
 
-  // --- Serializar ---
   const pdfBytes = await pdfDoc.save();
   return pdfBytes;
 }
 
-// Helper para descargar el archivo
+// --- downloadPdf (sin cambios) ---
 export function downloadPdf(
   bytes: Uint8Array,
   filename: string = "reporte-colas.pdf"
 ) {
-  // Alternative: Create a new ArrayBuffer from the Uint8Array's buffer slice
-  const arrayBuffer = bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength
-  );
   const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
-
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = filename;
