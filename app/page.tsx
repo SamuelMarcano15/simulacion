@@ -215,7 +215,7 @@ export default function Home() {
     {
       title: "Paso 1: Elige el Modelo",
       targetId: "asistente-paso-1",
-      position: "bottom-right",
+      position: "top-left",
       content: (
         <p>
           ¡Hola! Elige el modelo a resolver:
@@ -364,26 +364,36 @@ export default function Home() {
         </div>
       ),
     },
-    // Paso 6 (Explicación cBarra - Condicional)
+    // Paso 6 (Explicación Servidores Ocupados/Inactivos - Condicional)
     ...(selectedModel === "MMc" || selectedModel === "MMcN"
       ? [
           {
-            title: "Análisis: Servidores Inactivos (c-barra)", // <-- CORREGIDO
+            title: "Análisis: Ocupación de Servidores",
             targetId: "asistente-paso-3",
             position: "bottom-center" as AssistantPosition,
             content: (
-              <p>
-                <strong>Servidores Inactivos Promedio (c-barra):</strong>
-                <br />• <strong>Fórmula:</strong>{" "}
-                <span
-                  dangerouslySetInnerHTML={renderMath(
-                    "\\bar{c} = \\sum_{n=0}^{c-1} (c-n)P_n"
-                  )}
-                />
-                <br />• <strong>Significado:</strong> En promedio,{" "}
-                <strong>{formatNum(results?.cBarra, 4)}</strong> de los{" "}
-                {results?.params.c} servidores están libres.
-              </p>
+              <div>
+                <p className="mb-2">
+                  <strong>Servidores Ocupados Promedio (c_b):</strong>
+                  <br />• <strong>Fórmula:</strong>{" "}
+                  <span dangerouslySetInnerHTML={renderMath("c_b = \\lambda / \\mu")} />
+                  <br />• <strong>Significado:</strong> En promedio,{" "}
+                  <strong>{formatNum(results?.c_busy, 4)}</strong> de los{" "}
+                  {results?.params.c} servidores están ocupados.
+                </p>
+                <p>
+                  <strong>Servidores Inactivos Promedio (c_i):</strong>
+                  <br />• <strong>Fórmula:</strong>{" "}
+                  <span
+                    dangerouslySetInnerHTML={renderMath(
+                      "c_i = c - c_b"
+                    )}
+                  />
+                  <br />• <strong>Significado:</strong> En promedio,{" "}
+                  <strong>{formatNum(results?.c_idle, 4)}</strong> de los{" "}
+                  {results?.params.c} servidores están libres.
+                </p>
+              </div>
             ),
           },
         ]

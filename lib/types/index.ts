@@ -20,7 +20,8 @@ export interface QueueModelResults {
   lq: number;          // Número promedio de clientes en la cola (Lq)
   ws: number;          // Tiempo promedio de un cliente en el sistema (Ws)
   wq: number;          // Tiempo promedio de un cliente en la cola (Wq)
-  cBarra?: number;     // --- NUEVO: Número promedio de servidores inactivos (c̄) ---
+  c_idle?: number;     // Número promedio de servidores inactivos.
+  c_busy?: number;     // Número promedio de servidores ocupados.
   lambdaEff?: number;  // Tasa efectiva de llegada (λ_ef)
   lambdaPerdida?: number; // Clientes perdidos por unidad de tiempo
   probabilities: ProbabilityDistribution[]; // Distribución de probabilidad Pn

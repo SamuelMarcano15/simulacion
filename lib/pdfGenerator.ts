@@ -111,7 +111,10 @@ export async function generatePdfReport(
       results.wq,
       4
     )} unidades de tiempo solo esperando en la cola.`,
-    cBarra: `En promedio, ${formatNum(results.cBarra, 4)} de los ${
+    c_busy: `En promedio, ${formatNum(results.c_busy, 4)} de los ${
+      results.params.c || 1
+    } servidores están ocupados.`,
+    c_idle: `En promedio, ${formatNum(results.c_idle, 4)} de los ${
       results.params.c || 1
     } servidores están inactivos (libres).`,
     lambdaEff: `De los ${
@@ -411,11 +414,11 @@ export async function generatePdfReport(
   );
   y -= interpretationSpacing;
 
-  // --- MODIFICACIÓN: cBarra (Servidores Inactivos) ---
-  if (results.cBarra !== undefined) {
-    // Reemplazar 'c̄' por 'c-barra'
+  // Métricas de Servidores (solo para M/M/c y M/M/c/N)
+  if (results.modelType === "MMc" || results.modelType === "MMcN") {
+    // c_busy
     y -= draw(
-      "Servidores Inactivos Promedio (c-barra):",
+      "Servidores Ocupados Promedio (c_b):",
       metricX,
       y,
       fontSizeBody,
@@ -423,7 +426,7 @@ export async function generatePdfReport(
       fontBold
     );
     draw(
-      `${formatNum(results.cBarra, 4)} servidores`,
+      `${formatNum(results.c_busy, 4)} servidores`,
       metricValueX,
       y + fontSizeBody * 1.2,
       fontSizeBody,
@@ -431,7 +434,35 @@ export async function generatePdfReport(
     );
     y -= fontSizeBody * 1.2 + metricSpacing;
     y -= draw(
-      interpretations.cBarra,
+      interpretations.c_busy,
+      interpretationX,
+      y,
+      fontSizeSmall,
+      page,
+      font,
+      grayMedium
+    );
+    y -= interpretationSpacing;
+
+    // c_idle
+    y -= draw(
+      "Servidores Inactivos Promedio (c_i):",
+      metricX,
+      y,
+      fontSizeBody,
+      page,
+      fontBold
+    );
+    draw(
+      `${formatNum(results.c_idle, 4)} servidores`,
+      metricValueX,
+      y + fontSizeBody * 1.2,
+      fontSizeBody,
+      page
+    );
+    y -= fontSizeBody * 1.2 + metricSpacing;
+    y -= draw(
+      interpretations.c_idle,
       interpretationX,
       y,
       fontSizeSmall,
@@ -441,7 +472,6 @@ export async function generatePdfReport(
     );
     y -= interpretationSpacing;
   }
-  // --- FIN MODIFICACIÓN ---
 
   // Métricas Finitas
   if (results.modelType === "MM1N" || results.modelType === "MMcN") {

@@ -2,6 +2,8 @@
 import React from 'react';
 import { Card, CardBody, CardHeader, Divider } from '@heroui/react';
 import { motion } from 'framer-motion';
+import katex from "katex";
+import "katex/dist/katex.min.css";
 import { QueueModelResults } from '@/lib/types';
 
 interface ResultsDisplayProps {
@@ -11,6 +13,21 @@ interface ResultsDisplayProps {
 const formatNumber = (num?: number, decimals = 4): string => {
   if (num === undefined || num === null || isNaN(num)) return '-';
   return num.toFixed(decimals);
+};
+
+// Helper para renderizar KaTeX
+const renderMath = (texString: string): { __html: string } => {
+  try {
+    return {
+      __html: katex.renderToString(texString, {
+        throwOnError: false,
+        displayMode: false,
+      }),
+    };
+  } catch (e) {
+    console.error(e);
+    return { __html: texString };
+  }
 };
 
 // Helper para título del modelo
@@ -52,26 +69,35 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results }) => {
             <ResultItem label="Tiempo en Sistema (Ws)" value={formatNumber(results.ws)} symbol="Ws" unit="uds. tiempo"/>
             <ResultItem label="Tiempo en Cola (Wq)" value={formatNumber(results.wq)} symbol="Wq" unit="uds. tiempo"/>
            
-           {/* --- MODIFICACIÓN AQUÍ --- */}
-           {results.cBarra !== undefined && (
-             <ResultItem 
-                label="Servidores Inactivos (c-barra)" // <-- Texto cambiado
-                value={formatNumber(results.cBarra, 4)} 
-                symbol="c-barra" // <-- Símbolo cambiado
-                unit="servidores"
-              />
+           {/* Métricas solo para modelos M/M/c y M/M/c/N */}
+           {(results.modelType === 'MMc' || results.modelType === 'MMcN') && (
+             <>
+                <ResultItem 
+                  label="Servidores Ocupados Promedio" 
+                  value={formatNumber(results.c_busy, 4)} 
+                  symbol="c_b" 
+                  unit="servidores"
+                />
+                <ResultItem 
+                  label="Servidores Inactivos Promedio" 
+                  value={formatNumber(results.c_idle, 4)} 
+                  symbol="c_i" 
+                  unit="servidores"
+                />
+             </>
            )}
            
+           {/* Métricas solo para modelos finitos */}
            {(results.modelType === 'MM1N' || results.modelType === 'MMcN') && (
              <>
                 <ResultItem 
-                  label="Tasa Efectiva Llegada (λeff)" 
+                  label="Tasa Efectiva Llegada" 
                   value={formatNumber(results.lambdaEff)} 
                   symbol="λeff" 
                   unit="clientes/ud. tiempo" 
                 />
                 <ResultItem 
-                  label="Tasa de Llegada Perdida (λp)" 
+                  label="Tasa de Llegada Perdida" 
                   value={formatNumber(results.lambdaPerdida)} 
                   symbol="λp" 
                   unit="clientes/ud. tiempo" 
@@ -95,8 +121,14 @@ interface ResultItemProps {
 const ResultItem: React.FC<ResultItemProps> = ({ label, value, symbol, unit }) => (
     <div className="flex flex-col result-item-print">
         <span className="text-sm text-gray-500">{label}</span>
-        <span className="text-2xl font-bold text-unimar-secondary">
-             {symbol} = {value} {unit && <span className="text-base font-normal text-gray-600">{unit}</span>}
-        </span>
+        <div className="text-2xl font-bold text-unimar-secondary flex items-center gap-2">
+             { (symbol === "c_b" || symbol === "c_i") ? (
+                <span dangerouslySetInnerHTML={renderMath(symbol)} />
+             ) : (
+                <span>{symbol}</span>
+             )}
+             <span>= {value}</span>
+             {unit && <span className="text-base font-normal text-gray-600">{unit}</span>}
+        </div>
     </div>
 );

@@ -38,7 +38,8 @@ export function calculateMM1Infinite(lambda: number, mu: number): QueueModelResu
   const lq = (rho * rho) / (1 - rho);
   const ws = ls / lambda;
   const wq = lq / lambda;
-  const cBarra = 1 - rho; // Para c=1, c̄ = c - (λ/μ) = 1 - ρ
+  const c_idle = 1 - rho; // Para c=1, servidor inactivo es P0
+  const c_busy = rho;     // Para c=1, servidor ocupado es rho
 
   const probabilities: ProbabilityDistribution[] = [];
   let cumulativeP = 0;
@@ -61,7 +62,8 @@ export function calculateMM1Infinite(lambda: number, mu: number): QueueModelResu
   const results: QueueModelResults = {
     rho: rho, // ρ = λ/μ
     p0, ls, lq, ws, wq,
-    cBarra,
+    c_idle,
+    c_busy,
     lambdaPerdida: 0,
     probabilities,
     modelType: 'MM1',
@@ -115,10 +117,11 @@ export function calculateMM1Finite(lambda: number, mu: number, N: number): Queue
   const ls = tempLs;
   const lambdaEff = lambda * (1 - pn_N);
   const lambdaPerdida = lambda - lambdaEff;
-  const cBarra = p0; // Para c=1, c̄ = (c-n)Pn = (1-0)P0 = P0
+  const c_idle = p0; // Para c=1, servidor inactivo es P0
+  const c_busy = lambdaEff / mu; // Servidor ocupado = λ_eff / μ
   
   // (Ls - Lq) = λ_eff / μ  => Lq = Ls - (λ_eff / μ)
-  const lq_raw = ls - (lambdaEff / mu);
+  const lq_raw = ls - c_busy;
   const lq = lq_raw < 0 ? 0 : lq_raw; // Prevenir negativos por redondeo
 
   const safe_ws = lambdaEff === 0 ? 0 : ls / lambdaEff;
@@ -128,7 +131,8 @@ export function calculateMM1Finite(lambda: number, mu: number, N: number): Queue
     rho: rho, // ρ = λ/μ
     p0, ls, lq,
     ws: safe_ws, wq: safe_wq,
-    cBarra,
+    c_idle,
+    c_busy,
     lambdaEff, lambdaPerdida,
     probabilities,
     modelType: 'MM1N',
@@ -138,19 +142,19 @@ export function calculateMM1Finite(lambda: number, mu: number, N: number): Queue
 }
 
 // ---
-// --- NUEVO: MODELO M/M/c (INFINITO) ---
+// --- MODELO M/M/c (INFINITO) ---
 // ---
 export function calculateMMcInfinite(lambda: number, mu: number, c: number): QueueModelResults | CalculationError {
   if (lambda <= 0 || mu <= 0 || c <= 0 || !Number.isInteger(c)) {
     return { message: 'λ, μ, y c deben ser números positivos, y c debe ser un entero.' };
   }
   
-  const rho_util = lambda / (c * mu); // Factor de utilización (ρ) [cite: 348]
+  const rho_util = lambda / (c * mu); // Factor de utilización (ρ)
   if (rho_util >= 1) {
     return { message: 'El sistema es inestable (λ ≥ c*μ). Las llegadas superan la capacidad total de servicio.' };
   }
   
-  const rho_intensidad = lambda / mu; // Intensidad de tráfico (ρ = λ/μ)
+  const rho_intensidad = lambda / mu; // Intensidad de tráfico (λ/μ)
   let p0_sum_part1 = 0;
   for (let n = 0; n < c; n++) {
     p0_sum_part1 += Math.pow(rho_intensidad, n) / factorial(n); 
@@ -163,7 +167,7 @@ export function calculateMMcInfinite(lambda: number, mu: number, c: number): Que
   const wq = lq / lambda; 
   const ws = wq + (1 / mu); 
   
-  let cBarra_sum = 0;
+  let c_idle_sum = 0;
   const probabilities: ProbabilityDistribution[] = [];
   let cumulativeP = 0;
 
@@ -171,10 +175,11 @@ export function calculateMMcInfinite(lambda: number, mu: number, c: number): Que
     const pn = (Math.pow(rho_intensidad, n) / factorial(n)) * p0; 
     cumulativeP += pn;
     probabilities.push({ n, pn, cumulativePn: cumulativeP });
-    cBarra_sum += (c - n) * pn; // c̄ = Σ(c-n)Pn de n=0 a c-1
+    c_idle_sum += (c - n) * pn; // c_idle = Σ(c-n)Pn de n=0 a c-1
   }
   
-  const cBarra = cBarra_sum;
+  const c_idle = c_idle_sum;
+  const c_busy = rho_intensidad; // Servidores ocupados = λ/μ
 
   // Continuar calculando probabilidades para n >= c
   for (let n = c; n < 100; n++) { // Límite de 100 iteraciones
@@ -192,7 +197,8 @@ export function calculateMMcInfinite(lambda: number, mu: number, c: number): Que
   const results: QueueModelResults = {
     rho: rho_util, // ρ = λ/(c*μ)
     p0, ls, lq, ws, wq,
-    cBarra,
+    c_idle,
+    c_busy,
     lambdaPerdida: 0,
     probabilities,
     modelType: 'MMc',
@@ -202,7 +208,7 @@ export function calculateMMcInfinite(lambda: number, mu: number, c: number): Que
 }
 
 // ---
-// --- NUEVO: MODELO M/M/c/N (FINITO) ---
+// --- MODELO M/M/c/N (FINITO) ---
 // ---
 export function calculateMMcFinite(lambda: number, mu: number, c: number, N: number): QueueModelResults | CalculationError {
   if (lambda <= 0 || mu <= 0 || c <= 0 || !Number.isInteger(c)) {
@@ -233,7 +239,7 @@ export function calculateMMcFinite(lambda: number, mu: number, c: number, N: num
   let cumulativeP = 0;
   let pn_N = 0;
   let tempLs = 0;
-  let cBarra_sum = 0;
+  let c_idle_sum = 0;
 
   for (let n = 0; n <= N; n++) {
     let pn: number;
@@ -251,16 +257,17 @@ export function calculateMMcFinite(lambda: number, mu: number, c: number, N: num
     tempLs += n * pn; // Ls = Σ(n * Pn)
     
     if (n < c) { // La suma es de 0 a c-1
-      cBarra_sum += (c - n) * pn; // c̄ = Σ(c-n)Pn [cite: 401, 402]
+      c_idle_sum += (c - n) * pn; // c_idle = Σ(c-n)Pn
     }
   }
   
   const ls = tempLs;
-  const cBarra = cBarra_sum; // c̄
+  const c_idle = c_idle_sum;
   const lambdaEff = lambda * (1 - pn_N); 
   const lambdaPerdida = lambda - lambdaEff;
+  const c_busy = lambdaEff / mu; // Servidores ocupados = λ_eff / μ
   
-  const lq_raw = ls - (lambdaEff / mu); // Lq = Ls - (λ_eff / μ)
+  const lq_raw = ls - c_busy; // Lq = Ls - (λ_eff / μ)
   const lq = lq_raw < 0 ? 0 : lq_raw;
 
   const safe_ws = lambdaEff === 0 ? 0 : ls / lambdaEff;
@@ -270,11 +277,12 @@ export function calculateMMcFinite(lambda: number, mu: number, c: number, N: num
     rho: rho_util, // ρ = λ/(c*μ)
     p0, ls, lq,
     ws: safe_ws, wq: safe_wq,
-    cBarra,
+    c_idle,
+    c_busy,
     lambdaEff, lambdaPerdida,
     probabilities,
     modelType: 'MMcN',
     params: { lambda, mu, c, N }
   };
-  return results; // <-- CORRECCIÓN: Asegurar que este return exista
+  return results;
 }
