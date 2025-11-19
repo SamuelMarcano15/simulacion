@@ -2,7 +2,7 @@ import React from 'react';
 
 export const Header = () => {
   return (
-    <header className="bg-unimar-primary p-4 shadow-md">
+    <header className="bg-unimar-primary p-4 shadow-md rounded-xl">
       <h1 className="text-2xl font-bold text-white text-center font-headings">
         Calculadora de Líneas de Espera M/M/1
       </h1>

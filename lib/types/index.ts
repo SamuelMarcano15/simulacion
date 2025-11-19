@@ -44,3 +44,31 @@ export interface ProbabilityDistribution {
 export type CalculationError = {
   message: string;
 };
+
+export type DistributionType = 'POISSON' | 'EXPONENTIAL';
+
+export interface MonteCarloParams {
+  distribution: DistributionType;
+  lambda: number;       // Tasa media (λ)
+  nVariables: number;   // Número de variables a simular (columnas)
+  nObservations: number; // Cantidad de iteraciones (filas)
+}
+
+export interface SimulationRow {
+  observationIndex: number; // Índice de la iteración (1, 2, 3...)
+  randomValues: number[];   // Los números aleatorios (Ri) generados
+  simulatedValues: number[]; // Los valores resultantes (Xi) de la variable
+}
+
+export interface MonteCarloStats {
+  mean: number[];   // Media por variable
+  stdDev: number[]; // Desviación estándar por variable
+  min: number[];    // Mínimo por variable
+  max: number[];    // Máximo por variable
+}
+
+export interface MonteCarloResults {
+  params: MonteCarloParams;
+  data: SimulationRow[];
+  statistics: MonteCarloStats;
+}

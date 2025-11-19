@@ -7,9 +7,27 @@ import {
   PageSizes,
   PDFPage,
 } from "pdf-lib";
-import { QueueModelResults } from "@/lib/types";
+import { QueueModelResults, MonteCarloResults } from "@/lib/types";
 
-// Helper para formatear números en el PDF
+// --- Configuración de Estilos ---
+const colors = {
+  primary: rgb(0.043, 0.314, 0.549), // #0B508C
+  secondary: rgb(0.235, 0.455, 0.651), // #3C74A6
+  textDark: rgb(0.149, 0.149, 0.149), // #262626
+  grayLight: rgb(0.9, 0.9, 0.9),
+  grayMedium: rgb(0.5, 0.5, 0.5),
+  white: rgb(1, 1, 1),
+};
+
+const layout = {
+  margin: 50,
+  fontSizeTitle: 20,
+  fontSizeHeader: 14,
+  fontSizeBody: 10,
+  fontSizeSmall: 8,
+};
+
+// --- Helpers ---
 const formatNum = (num?: number, decimals = 4): string => {
   if (num === undefined || num === null || isNaN(num)) return "-";
   if (Math.abs(num) < 1e-6 && num !== 0) {
@@ -18,15 +36,445 @@ const formatNum = (num?: number, decimals = 4): string => {
   return num.toFixed(decimals);
 };
 
-// --- Colores UNIMAR (aproximados en RGB 0-1) ---
-const unimarPrimary = rgb(0.043, 0.314, 0.549); // #0B508C
-const unimarSecondary = rgb(0.235, 0.455, 0.651); // #3C74A6
-const unimarTextDark = rgb(0.149, 0.149, 0.149); // #262626
-const grayLight = rgb(0.9, 0.9, 0.9);
-const grayMedium = rgb(0.5, 0.5, 0.5);
+const drawText = (
+  page: PDFPage,
+  text: string,
+  x: number,
+  y: number,
+  size: number,
+  font: PDFFont,
+  color = colors.textDark
+) => {
+  // Sanear texto: Reemplazar caracteres problemáticos si se nos pasa alguno
+  const safeText = text
+    .replace(/λ/g, "Lambda")
+    .replace(/μ/g, "Mu")
+    .replace(/ρ/g, "Rho")
+    .replace(/σ/g, "Sigma")
+    .replace(/≤/g, "<=")
+    .replace(/≥/g, ">=");
 
-// Helper para título del modelo
-const getModelTitle = (results: QueueModelResults): string => {
+  page.drawText(safeText, { x, y, size, font, color });
+  return size * 1.2; // Retorna la altura de línea estimada
+};
+
+// Type Guard para diferenciar resultados
+function isQueueResults(
+  results: QueueModelResults | MonteCarloResults
+): results is QueueModelResults {
+  return (results as QueueModelResults).modelType !== undefined;
+}
+
+// --- Función Principal ---
+export async function generatePdfReport(
+  results: QueueModelResults | MonteCarloResults
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  let page = pdfDoc.addPage(PageSizes.A4);
+  let { width, height } = page.getSize();
+  let currentY = height - layout.margin;
+
+  // --- Lógica de Dibujo Específica ---
+  if (isQueueResults(results)) {
+    await drawQueueReport(pdfDoc, page, results, font, fontBold, currentY);
+  } else {
+    await drawMonteCarloReport(pdfDoc, page, results, font, fontBold, currentY);
+  }
+
+  const pdfBytes = await pdfDoc.save();
+  return pdfBytes;
+}
+
+// ==========================================
+// REPORTE: TEORÍA DE COLAS
+// ==========================================
+async function drawQueueReport(
+  doc: PDFDocument,
+  page: PDFPage,
+  results: QueueModelResults,
+  font: PDFFont,
+  fontBold: PDFFont,
+  startY: number
+) {
+  let y = startY;
+  const { width } = page.getSize();
+  const contentWidth = width - 2 * layout.margin;
+
+  // Título
+  const modelName = getQueueModelTitle(results);
+  y -= drawText(
+    page,
+    `Reporte de Analisis: ${modelName}`, // Quitamos acento por si acaso
+    layout.margin,
+    y,
+    layout.fontSizeTitle,
+    fontBold,
+    colors.primary
+  );
+  y -= 20;
+
+  // Parámetros
+  y -= drawText(
+    page,
+    "Parametros de Entrada",
+    layout.margin,
+    y,
+    layout.fontSizeHeader,
+    fontBold,
+    colors.secondary
+  );
+  y -= 10;
+
+  const paramX = layout.margin + 10;
+  const valueX = layout.margin + 220;
+
+  const drawParam = (label: string, value: string) => {
+    drawText(page, label, paramX, y, layout.fontSizeBody, fontBold);
+    drawText(page, value, valueX, y, layout.fontSizeBody, font);
+    y -= 15;
+  };
+
+  drawParam(
+    "Tasa de Llegada (Lambda):",
+    `${results.params.lambda} clientes/tiempo`
+  );
+  drawParam(
+    "Tasa de Servicio (Mu):",
+    `${results.params.mu} clientes/tiempo`
+  );
+  if (results.params.c && results.params.c > 1) {
+    drawParam("Servidores (c):", `${results.params.c}`);
+  }
+  if (results.params.N) {
+    drawParam("Capacidad (N):", `${results.params.N}`);
+  }
+  y -= 20;
+
+  // Métricas
+  y -= drawText(
+    page,
+    "Metricas de Desempeno", // Sin ñ
+    layout.margin,
+    y,
+    layout.fontSizeHeader,
+    fontBold,
+    colors.secondary
+  );
+  y -= 10;
+
+  const drawMetric = (label: string, value: string, note?: string) => {
+    drawText(page, label, paramX, y, layout.fontSizeBody, fontBold);
+    drawText(page, value, valueX + 50, y, layout.fontSizeBody, font);
+    y -= 15;
+    if (note) {
+      drawText(
+        page,
+        note,
+        paramX + 5,
+        y,
+        layout.fontSizeSmall,
+        font,
+        colors.grayMedium
+      );
+      y -= 12;
+    }
+    y -= 5;
+  };
+
+  drawMetric(
+    "Utilizacion (Rho):",
+    `${formatNum(results.rho * 100, 2)}%`,
+    "Porcentaje de ocupacion del sistema."
+  );
+  drawMetric(
+    "Prob. Sistema Vacio (P0):",
+    `${formatNum(results.p0 * 100, 2)}%`,
+    "Probabilidad de encontrar 0 clientes."
+  );
+  drawMetric(
+    "Clientes en Sistema (Ls):",
+    `${formatNum(results.ls)}`,
+    "Promedio de clientes (cola + servicio)."
+  );
+  drawMetric(
+    "Clientes en Cola (Lq):",
+    `${formatNum(results.lq)}`,
+    "Promedio de clientes esperando."
+  );
+  drawMetric(
+    "Tiempo en Sistema (Ws):",
+    `${formatNum(results.ws)}`,
+    "Tiempo total promedio de un cliente."
+  );
+  drawMetric(
+    "Tiempo en Cola (Wq):",
+    `${formatNum(results.wq)}`,
+    "Tiempo de espera promedio."
+  );
+
+  y -= 20;
+
+  // Tabla de Probabilidades
+  y -= drawText(
+    page,
+    "Distribucion de Probabilidad P(n)",
+    layout.margin,
+    y,
+    layout.fontSizeHeader,
+    fontBold,
+    colors.secondary
+  );
+  y -= 15;
+
+  // Header Tabla
+  const col1 = layout.margin + 10;
+  const col2 = layout.margin + 120;
+  const col3 = layout.margin + 240;
+  const rowH = 20;
+
+  // Fondo Header
+  page.drawRectangle({
+    x: layout.margin,
+    y: y - 5,
+    width: contentWidth,
+    height: rowH,
+    color: colors.secondary,
+  });
+
+  drawText(page, "n", col1, y, layout.fontSizeBody, fontBold, colors.white);
+  drawText(page, "P(n)", col2, y, layout.fontSizeBody, fontBold, colors.white);
+  drawText(page, "P(acum)", col3, y, layout.fontSizeBody, fontBold, colors.white);
+  y -= rowH;
+
+  // Filas
+  for (let i = 0; i < results.probabilities.length; i++) {
+    const p = results.probabilities[i];
+    // Nueva página si es necesario
+    if (y < layout.margin + rowH) {
+      page = doc.addPage(PageSizes.A4);
+      y = page.getSize().height - layout.margin;
+    }
+
+    if (i % 2 === 0) {
+      page.drawRectangle({
+        x: layout.margin,
+        y: y - 5,
+        width: contentWidth,
+        height: rowH,
+        color: colors.grayLight,
+      });
+    }
+
+    drawText(page, `${p.n}`, col1, y, layout.fontSizeBody, font);
+    drawText(page, formatNum(p.pn, 5), col2, y, layout.fontSizeBody, font);
+    drawText(
+      page,
+      formatNum(p.cumulativePn, 5),
+      col3,
+      y,
+      layout.fontSizeBody,
+      font
+    );
+    y -= rowH;
+  }
+}
+
+// ==========================================
+// REPORTE: MONTECARLO
+// ==========================================
+async function drawMonteCarloReport(
+  doc: PDFDocument,
+  page: PDFPage,
+  results: MonteCarloResults,
+  font: PDFFont,
+  fontBold: PDFFont,
+  startY: number
+) {
+  let y = startY;
+  const { width, height } = page.getSize();
+  const contentWidth = width - 2 * layout.margin;
+
+  // Título
+  y -= drawText(
+    page,
+    `Simulacion Montecarlo: ${results.params.distribution}`, // Sin acento
+    layout.margin,
+    y,
+    layout.fontSizeTitle,
+    fontBold,
+    colors.primary
+  );
+  y -= 20;
+
+  // Parámetros
+  y -= drawText(
+    page,
+    "Configuracion", // Sin acento
+    layout.margin,
+    y,
+    layout.fontSizeHeader,
+    fontBold,
+    colors.secondary
+  );
+  y -= 10;
+
+  const paramLabelX = layout.margin + 10;
+  const paramValX = layout.margin + 150;
+
+  drawText(page, "Distribucion:", paramLabelX, y, layout.fontSizeBody, fontBold);
+  drawText(page, results.params.distribution, paramValX, y, layout.fontSizeBody, font);
+  y -= 15;
+  // CORRECCIÓN AQUÍ: Quitamos el símbolo λ
+  drawText(page, "Tasa (Lambda):", paramLabelX, y, layout.fontSizeBody, fontBold);
+  drawText(page, `${results.params.lambda}`, paramValX, y, layout.fontSizeBody, font);
+  y -= 15;
+  drawText(page, "Variables:", paramLabelX, y, layout.fontSizeBody, fontBold);
+  drawText(page, `${results.params.nVariables}`, paramValX, y, layout.fontSizeBody, font);
+  y -= 15;
+  drawText(page, "Observaciones:", paramLabelX, y, layout.fontSizeBody, fontBold);
+  drawText(page, `${results.params.nObservations}`, paramValX, y, layout.fontSizeBody, font);
+  y -= 25;
+
+  // Estadísticas
+  y -= drawText(
+    page,
+    "Estadisticas Generales", // Sin acento
+    layout.margin,
+    y,
+    layout.fontSizeHeader,
+    fontBold,
+    colors.secondary
+  );
+  y -= 15;
+
+  // Tabla de Estadísticas
+  const statsHeaderH = 20;
+  const statsRowH = 18;
+  const colVar = layout.margin + 10;
+  const colMean = layout.margin + 100;
+  const colStd = layout.margin + 200;
+  const colMin = layout.margin + 300;
+  const colMax = layout.margin + 400;
+
+  // Header Estadísticas
+  page.drawRectangle({
+    x: layout.margin,
+    y: y - 5,
+    width: contentWidth,
+    height: statsHeaderH,
+    color: colors.secondary,
+  });
+
+  drawText(page, "Variable", colVar, y, layout.fontSizeBody, fontBold, colors.white);
+  drawText(page, "Media", colMean, y, layout.fontSizeBody, fontBold, colors.white);
+  drawText(page, "Desv. Est.", colStd, y, layout.fontSizeBody, fontBold, colors.white);
+  drawText(page, "Min", colMin, y, layout.fontSizeBody, fontBold, colors.white); // Sin acento
+  drawText(page, "Max", colMax, y, layout.fontSizeBody, fontBold, colors.white); // Sin acento
+  y -= statsHeaderH;
+
+  // Filas Estadísticas
+  for (let i = 0; i < results.params.nVariables; i++) {
+    if (i % 2 === 0) {
+      page.drawRectangle({
+        x: layout.margin,
+        y: y - 5,
+        width: contentWidth,
+        height: statsRowH,
+        color: colors.grayLight,
+      });
+    }
+    drawText(page, `Var ${i + 1}`, colVar, y, layout.fontSizeBody, font);
+    drawText(page, formatNum(results.statistics.mean[i]), colMean, y, layout.fontSizeBody, font);
+    drawText(page, formatNum(results.statistics.stdDev[i]), colStd, y, layout.fontSizeBody, font);
+    drawText(page, formatNum(results.statistics.min[i]), colMin, y, layout.fontSizeBody, font);
+    drawText(page, formatNum(results.statistics.max[i]), colMax, y, layout.fontSizeBody, font);
+    y -= statsRowH;
+  }
+  y -= 25;
+
+  // Tabla de Datos (Limitada a 1000 filas)
+  const maxRows = 1000;
+  const dataToShow = results.data.slice(0, maxRows);
+
+  y -= drawText(
+    page,
+    `Detalle de Simulacion (Primeras ${dataToShow.length} obs.)`, // Sin acento
+    layout.margin,
+    y,
+    layout.fontSizeHeader,
+    fontBold,
+    colors.secondary
+  );
+  y -= 15;
+
+  // Configuración dinámica de columnas
+  const obsColWidth = 50;
+  const remainingWidth = contentWidth - obsColWidth;
+  const varColWidth = remainingWidth / results.params.nVariables;
+  const fontSizeTable = results.params.nVariables > 5 ? 6 : 8;
+  const rowHeight = fontSizeTable * 2.5;
+
+  // Función para dibujar encabezado de tabla de datos
+  const drawDataHeader = (p: PDFPage, currentY: number) => {
+    p.drawRectangle({
+      x: layout.margin,
+      y: currentY - 5,
+      width: contentWidth,
+      height: rowHeight,
+      color: colors.secondary,
+    });
+    
+    drawText(p, "Obs #", layout.margin + 5, currentY, fontSizeTable, fontBold, colors.white);
+    
+    for(let i=0; i < results.params.nVariables; i++) {
+       const x = layout.margin + obsColWidth + (i * varColWidth);
+       drawText(p, `Var ${i+1} (R / V)`, x + 5, currentY, fontSizeTable, fontBold, colors.white);
+    }
+    return currentY - rowHeight;
+  };
+
+  y = drawDataHeader(page, y);
+
+  // Filas de Datos
+  for (let i = 0; i < dataToShow.length; i++) {
+    const row = dataToShow[i];
+
+    // Nueva página
+    if (y < layout.margin + rowHeight) {
+      page = doc.addPage(PageSizes.A4);
+      y = height - layout.margin;
+      y = drawDataHeader(page, y);
+    }
+
+    if (i % 2 === 0) {
+      page.drawRectangle({
+        x: layout.margin,
+        y: y - 5,
+        width: contentWidth,
+        height: rowHeight,
+        color: colors.grayLight,
+      });
+    }
+
+    // Índice
+    drawText(page, `${row.observationIndex}`, layout.margin + 5, y, fontSizeTable, font);
+
+    // Valores
+    for(let j=0; j < results.params.nVariables; j++) {
+       const x = layout.margin + obsColWidth + (j * varColWidth);
+       const text = `R:${formatNum(row.randomValues[j], 3)} / V:${formatNum(row.simulatedValues[j], 2)}`;
+       drawText(page, text, x + 5, y, fontSizeTable, font);
+    }
+
+    y -= rowHeight;
+  }
+}
+
+// --- Utilidades ---
+function getQueueModelTitle(results: QueueModelResults): string {
   const { c, N } = results.params;
   switch (results.modelType) {
     case "MM1":
@@ -38,633 +486,12 @@ const getModelTitle = (results: QueueModelResults): string => {
     case "MMcN":
       return `M/M/${c}/${N} (Cola Finita)`;
     default:
-      return "Resultados del Modelo";
+      return "Resultados";
   }
-};
-
-// --- Función Principal ---
-export async function generatePdfReport(
-  results: QueueModelResults
-): Promise<Uint8Array> {
-  const pdfDoc = await PDFDocument.create();
-  let page = pdfDoc.addPage(PageSizes.A4);
-  const { width, height } = page.getSize();
-
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica, {
-    subset: true,
-  });
-  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold, {
-    subset: true,
-  });
-
-  const fontSizeTitle = 20;
-  const fontSizeHeader = 14;
-  const fontSizeBody = 10;
-  const fontSizeSmall = 8;
-  const margin = 50;
-  const contentWidth = width - 2 * margin;
-  let y = height - margin - fontSizeTitle;
-
-  const draw = (
-    text: string,
-    xOffset: number,
-    currentY: number,
-    size: number,
-    currentPage: PDFPage,
-    fontToUse: PDFFont = font,
-    color: ReturnType<typeof rgb> = unimarTextDark
-  ): number => {
-    currentPage.drawText(text, {
-      x: margin + xOffset,
-      y: currentY,
-      font: fontToUse,
-      size: size,
-      color: color,
-      lineHeight: size * 1.2,
-    });
-    return size * 1.2;
-  };
-
-  // Objeto de Interpretaciones
-  const interpretations = {
-    rho: `Significa que, en promedio, cada servidor está ocupado el ${formatNum(
-      (results.rho ?? 0) * 100,
-      2
-    )}% del tiempo.`,
-    p0: `Hay un ${formatNum(
-      (results.p0 ?? 0) * 100,
-      2
-    )}% de probabilidad de que el sistema esté completamente vacío (sin clientes).`,
-    ls: `Indica que, en cualquier momento, se espera encontrar un promedio de ${formatNum(
-      results.ls,
-      4
-    )} clientes en el sistema (esperando en cola + siendo atendidos).`,
-    lq: `Indica que, en cualquier momento, se espera encontrar un promedio de ${formatNum(
-      results.lq,
-      4
-    )} clientes esperando en la cola.`,
-    ws: `Un cliente (desde que llega hasta que se va) pasa un promedio de ${formatNum(
-      results.ws,
-      4
-    )} unidades de tiempo en el sistema.`,
-    wq: `Un cliente pasa un promedio de ${formatNum(
-      results.wq,
-      4
-    )} unidades de tiempo solo esperando en la cola.`,
-    c_busy: `En promedio, ${formatNum(results.c_busy, 4)} de los ${
-      results.params.c || 1
-    } servidores están ocupados.`,
-    c_idle: `En promedio, ${formatNum(results.c_idle, 4)} de los ${
-      results.params.c || 1
-    } servidores están inactivos (libres).`,
-    lambdaEff: `De los ${
-      results.params.lambda
-    } clientes que llegan por unidad de tiempo, solo ${formatNum(
-      results.lambdaEff,
-      4
-    )} logran entrar al sistema.`,
-    lambdaPerdida: `En promedio, ${formatNum(
-      results.lambdaPerdida,
-      4
-    )} clientes por unidad de tiempo son rechazados porque el sistema está lleno (N=${
-      results.params.N
-    }).`,
-  };
-
-  // --- Título ---
-  y -= draw(
-    `Reporte de Análisis: ${getModelTitle(results)}`,
-    0,
-    y,
-    fontSizeTitle,
-    page,
-    fontBold,
-    unimarPrimary
-  );
-  y -= 15;
-
-  // --- Parámetros Usados ---
-  y -= draw(
-    "Parámetros de Entrada",
-    0,
-    y,
-    fontSizeHeader,
-    page,
-    fontBold,
-    unimarSecondary
-  );
-  y -= 5;
-  const paramX = 10;
-  const valueX = 220;
-
-  y -= draw(
-    "Tasa de Llegada (Lambda):",
-    paramX,
-    y,
-    fontSizeBody,
-    page,
-    fontBold
-  );
-  draw(
-    `${results.params.lambda} (clientes/ud. tiempo)`,
-    valueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  );
-  y -= fontSizeBody * 1.2 + 3;
-
-  y -= draw(
-    "Tasa de Servicio (Mu por Servidor):",
-    paramX,
-    y,
-    fontSizeBody,
-    page,
-    fontBold
-  );
-  draw(
-    `${results.params.mu} (clientes/ud. tiempo)`,
-    valueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  );
-  y -= fontSizeBody * 1.2 + 3;
-
-  if (results.params.c && results.params.c > 1) {
-    y -= draw(
-      "Número de Servidores (c):",
-      paramX,
-      y,
-      fontSizeBody,
-      page,
-      fontBold
-    );
-    draw(
-      `${results.params.c}`,
-      valueX,
-      y + fontSizeBody * 1.2,
-      fontSizeBody,
-      page
-    );
-    y -= fontSizeBody * 1.2 + 3;
-  }
-  if (results.params.N) {
-    y -= draw(
-      "Capacidad Sistema (N):",
-      paramX,
-      y,
-      fontSizeBody,
-      page,
-      fontBold
-    );
-    draw(
-      `${results.params.N}`,
-      valueX,
-      y + fontSizeBody * 1.2,
-      fontSizeBody,
-      page
-    );
-    y -= fontSizeBody * 1.2 + 3;
-  }
-  y -= 15;
-
-  // --- Métricas Calculadas (CON INTERPRETACIONES) ---
-  y -= draw(
-    "Métricas de Desempeño",
-    0,
-    y,
-    fontSizeHeader,
-    page,
-    fontBold,
-    unimarSecondary
-  );
-  y -= 5;
-  const metricX = 10;
-  const metricValueX = 270;
-  const interpretationX = 15;
-  const metricSpacing = 3;
-  const interpretationSpacing = 8;
-
-  // Rho
-  y -= draw(
-    "Utilización por Servidor (Rho):",
-    metricX,
-    y,
-    fontSizeBody,
-    page,
-    fontBold
-  );
-  draw(
-    formatNum(results.rho),
-    metricValueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  );
-  y -= fontSizeBody * 1.2 + metricSpacing;
-  y -= draw(
-    interpretations.rho,
-    interpretationX,
-    y,
-    fontSizeSmall,
-    page,
-    font,
-    grayMedium
-  );
-  y -= interpretationSpacing;
-
-  // P0
-  y -= draw(
-    "Probabilidad Sistema Vacío (P0):",
-    metricX,
-    y,
-    fontSizeBody,
-    page,
-    fontBold
-  );
-  draw(
-    formatNum(results.p0, 5),
-    metricValueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  );
-  y -= fontSizeBody * 1.2 + metricSpacing;
-  y -= draw(
-    interpretations.p0,
-    interpretationX,
-    y,
-    fontSizeSmall,
-    page,
-    font,
-    grayMedium
-  );
-  y -= interpretationSpacing;
-
-  // Ls
-  y -= draw(
-    "Clientes Promedio en Sistema (Ls):",
-    metricX,
-    y,
-    fontSizeBody,
-    page,
-    fontBold
-  );
-  draw(
-    `${formatNum(results.ls)} clientes`,
-    metricValueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  );
-  y -= fontSizeBody * 1.2 + metricSpacing;
-  y -= draw(
-    interpretations.ls,
-    interpretationX,
-    y,
-    fontSizeSmall,
-    page,
-    font,
-    grayMedium
-  );
-  y -= interpretationSpacing;
-
-  // Lq
-  y -= draw(
-    "Clientes Promedio en Cola (Lq):",
-    metricX,
-    y,
-    fontSizeBody,
-    page,
-    fontBold
-  );
-  draw(
-    `${formatNum(results.lq)} clientes`,
-    metricValueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  );
-  y -= fontSizeBody * 1.2 + metricSpacing;
-  y -= draw(
-    interpretations.lq,
-    interpretationX,
-    y,
-    fontSizeSmall,
-    page,
-    font,
-    grayMedium
-  );
-  y -= interpretationSpacing;
-
-  // Ws
-  y -= draw(
-    "Tiempo Promedio en Sistema (Ws):",
-    metricX,
-    y,
-    fontSizeBody,
-    page,
-    fontBold
-  );
-  draw(
-    `${formatNum(results.ws)} uds. de tiempo`,
-    metricValueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  );
-  y -= fontSizeBody * 1.2 + metricSpacing;
-  y -= draw(
-    interpretations.ws,
-    interpretationX,
-    y,
-    fontSizeSmall,
-    page,
-    font,
-    grayMedium
-  );
-  y -= interpretationSpacing;
-
-  // Wq
-  y -= draw(
-    "Tiempo Promedio en Cola (Wq):",
-    metricX,
-    y,
-    fontSizeBody,
-    page,
-    fontBold
-  );
-  draw(
-    `${formatNum(results.wq)} uds. de tiempo`,
-    metricValueX,
-    y + fontSizeBody * 1.2,
-    fontSizeBody,
-    page
-  );
-  y -= fontSizeBody * 1.2 + metricSpacing;
-  y -= draw(
-    interpretations.wq,
-    interpretationX,
-    y,
-    fontSizeSmall,
-    page,
-    font,
-    grayMedium
-  );
-  y -= interpretationSpacing;
-
-  // Métricas de Servidores (solo para M/M/c y M/M/c/N)
-  if (results.modelType === "MMc" || results.modelType === "MMcN") {
-    // c_busy
-    y -= draw(
-      "Servidores Ocupados Promedio (c_b):",
-      metricX,
-      y,
-      fontSizeBody,
-      page,
-      fontBold
-    );
-    draw(
-      `${formatNum(results.c_busy, 4)} servidores`,
-      metricValueX,
-      y + fontSizeBody * 1.2,
-      fontSizeBody,
-      page
-    );
-    y -= fontSizeBody * 1.2 + metricSpacing;
-    y -= draw(
-      interpretations.c_busy,
-      interpretationX,
-      y,
-      fontSizeSmall,
-      page,
-      font,
-      grayMedium
-    );
-    y -= interpretationSpacing;
-
-    // c_idle
-    y -= draw(
-      "Servidores Inactivos Promedio (c_i):",
-      metricX,
-      y,
-      fontSizeBody,
-      page,
-      fontBold
-    );
-    draw(
-      `${formatNum(results.c_idle, 4)} servidores`,
-      metricValueX,
-      y + fontSizeBody * 1.2,
-      fontSizeBody,
-      page
-    );
-    y -= fontSizeBody * 1.2 + metricSpacing;
-    y -= draw(
-      interpretations.c_idle,
-      interpretationX,
-      y,
-      fontSizeSmall,
-      page,
-      font,
-      grayMedium
-    );
-    y -= interpretationSpacing;
-  }
-
-  // Métricas Finitas
-  if (results.modelType === "MM1N" || results.modelType === "MMcN") {
-    // LambdaEff
-    y -= draw(
-      "Tasa Efectiva de Llegada (Lambda_eff):",
-      metricX,
-      y,
-      fontSizeBody,
-      page,
-      fontBold
-    );
-    draw(
-      `${formatNum(results.lambdaEff)} clientes/ud. tiempo`,
-      metricValueX,
-      y + fontSizeBody * 1.2,
-      fontSizeBody,
-      page
-    );
-    y -= fontSizeBody * 1.2 + metricSpacing;
-    y -= draw(
-      interpretations.lambdaEff,
-      interpretationX,
-      y,
-      fontSizeSmall,
-      page,
-      font,
-      grayMedium
-    );
-    y -= interpretationSpacing;
-
-    // LambdaPerdida
-    y -= draw(
-      "Tasa de Llegada Perdida (Lambda_p):",
-      metricX,
-      y,
-      fontSizeBody,
-      page,
-      fontBold
-    );
-    draw(
-      `${formatNum(results.lambdaPerdida)} clientes/ud. tiempo`,
-      metricValueX,
-      y + fontSizeBody * 1.2,
-      fontSizeBody,
-      page
-    );
-    y -= fontSizeBody * 1.2 + metricSpacing;
-    y -= draw(
-      interpretations.lambdaPerdida,
-      interpretationX,
-      y,
-      fontSizeSmall,
-      page,
-      font,
-      grayMedium
-    );
-    y -= interpretationSpacing;
-  }
-  y -= 15;
-
-  // --- Tabla de Probabilidades (Lógica de paginación sin cambios) ---
-  y -= draw(
-    "Distribución de Probabilidad P(n)",
-    0,
-    y,
-    fontSizeHeader,
-    page,
-    fontBold,
-    unimarSecondary
-  );
-  y -= 8;
-
-  // --- INICIO DE CAMBIOS ---
-
-  // 1. Definir offsets de columna (relativos al margen) para mejor espaciado
-  const col1_offset = 10;
-  const col2_offset = 120;
-  const col3_offset = 240;
-
-  // 2. Aumentar tamaño de fuente y altura de fila
-  const tableHeaderSize = fontSizeBody; // 10pt
-  const tableRowSize = fontSizeBody; // 10pt (era fontSizeSmall)
-  const rowHeight = tableRowSize * 1.8; // Más alto (era 1.4)
-  const tableBottomMargin = margin + 30;
-
-  // --- Función auxiliar para dibujar el encabezado (para reutilizar en paginación) ---
-  const drawTableHeader = (currentPage: PDFPage, currentY: number): number => {
-    const headerBaselineY = currentY;
-    const headerHeight = rowHeight * 1.1; // Encabezado un poco más alto
-    const headerBottomY = headerBaselineY - tableHeaderSize - 4;
-
-    // 3. Dibujar fondo sólido para el encabezado
-    currentPage.drawRectangle({
-      x: margin,
-      y: headerBottomY,
-      width: contentWidth,
-      height: headerHeight,
-      color: unimarSecondary,
-    });
-
-    // 4. Dibujar texto del encabezado (blanco)
-    const headerTextColor = rgb(1, 1, 1);
-
-    // --- CAMBIO AQUÍ ---
-    // El texto estaba 4.1 puntos por encima del centro.
-    // Lo bajamos 4 puntos para centrarlo.
-    const ajuste_vertical = 4;
-
-    draw(
-      "n",
-      col1_offset,
-      headerBaselineY - ajuste_vertical, // Aplicar ajuste
-      tableHeaderSize,
-      currentPage,
-      fontBold,
-      headerTextColor
-    );
-    draw(
-      "P(n)",
-      col2_offset,
-      headerBaselineY - ajuste_vertical, // Aplicar ajuste
-      tableHeaderSize,
-      currentPage,
-      fontBold,
-      headerTextColor
-    );
-    draw(
-      "P(acumulada)",
-      col3_offset,
-      headerBaselineY - ajuste_vertical, // Aplicar ajuste
-      tableHeaderSize,
-      currentPage,
-      fontBold,
-      headerTextColor
-    );
-
-    return headerBaselineY - headerBottomY + 8; // Retornar el espacio total ocupado
-  }; // Dibujar el primer encabezado
-  y -= drawTableHeader(page, y);
-  // --- Dibujar Filas de la Tabla ---
-  results.probabilities.forEach((prob, index) => {
-    // Lógica de paginación (ahora usa la función auxiliar)
-    if (y < tableBottomMargin) {
-      page = pdfDoc.addPage(PageSizes.A4);
-      y = height - margin;
-      y -= drawTableHeader(page, y);
-    }
-
-    // 5. Calcular centrado vertical del texto
-
-    // --- CAMBIO AQUÍ ---
-    // El cálculo original (y - 4) estaba 3 puntos por encima del centro.
-    // Restamos 3 para que coincida con el centro (y - 7).
-    const textBaselineY = y - (rowHeight - tableRowSize) / 2 - 3; // Ajustado
-
-    // 6. Dibujar rectángulo de fondo (sin opacidad)
-    const bgColor = index % 2 === 0 ? grayLight : rgb(1, 1, 1);
-    page.drawRectangle({
-      x: margin,
-      y: y - rowHeight + tableRowSize * 0.2, // Ajuste ligero para la base de la fila
-      width: contentWidth,
-      height: rowHeight,
-      color: bgColor,
-      // Se quitó opacity: 0.3
-    });
-
-    // Dibujar texto de la fila (centrado)
-    draw(`${prob.n}`, col1_offset, textBaselineY, tableRowSize, page);
-    draw(formatNum(prob.pn, 5), col2_offset, textBaselineY, tableRowSize, page);
-    draw(
-      formatNum(prob.cumulativePn, 5),
-      col3_offset,
-      textBaselineY,
-      tableRowSize,
-      page
-    );
-
-    y -= rowHeight; // Moverse a la siguiente fila
-  });
-
-  // --- FIN DE CAMBIOS ---
-
-  const pdfBytes = await pdfDoc.save();
-  return pdfBytes;
 }
 
-// --- downloadPdf (sin cambios) ---
-export function downloadPdf(
-  bytes: Uint8Array,
-  filename: string = "reporte-colas.pdf"
-) {
-  const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
+export function downloadPdf(bytes: Uint8Array, filename: string = "reporte.pdf") {
+ const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = filename;

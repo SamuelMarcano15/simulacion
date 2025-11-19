@@ -7,10 +7,24 @@
 │   ├── providers.tsx
 │   └── styles
 │       └── colors.ts
+├── components
+│   ├── AssistantWindow.tsx
+│   ├── CalculatorForm.tsx
+│   ├── Header.tsx
+│   ├── ModelSelector.tsx
+│   ├── ProbabilityCalculator.tsx
+│   ├── ProbabilityTable.tsx
+│   └── ResultsDisplay.tsx
 ├── config
 │   └── fonts.ts
 ├── eslint.config.mjs
 ├── estructura.txt
+├── lib
+│   ├── pdfGenerator.ts
+│   ├── queuingModels.ts
+│   └── types
+│       └── index.ts
+├── next-env.d.ts
 ├── next.config.mjs
 ├── package-lock.json
 ├── package.json
@@ -26,4 +40,4 @@
 ├── tailwind.config.ts
 └── tsconfig.json
 
-6 directories, 21 files
+9 directories, 32 files
