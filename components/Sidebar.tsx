@@ -1,3 +1,4 @@
+// components/Sidebar.tsx
 "use client";
 
 import React from "react";
@@ -5,7 +6,8 @@ import { Button, Card, CardBody } from "@heroui/react";
 import { Icon } from "@iconify/react";
 import { motion } from "framer-motion";
 
-export type ViewType = "QUEUING" | "MONTECARLO";
+// Actualizamos el tipo para incluir la nueva vista
+export type ViewType = "QUEUING" | "MONTECARLO" | "RESTAURANT";
 
 interface SidebarProps {
   currentView: ViewType;
@@ -26,14 +28,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) =
       icon: "ph:chart-line-up-bold",
       description: "Poisson y Exponencial",
     },
+    {
+      id: "RESTAURANT" as ViewType,
+      label: "Simulador Restaurante",
+      icon: "ph:storefront-bold",
+      description: "Eventos Discretos",
+    },
   ];
 
   return (
-    // Eliminamos márgenes externos y anchos fijos aquí, el padre lo controlará
     <div className="h-full w-full">
       <Card className="h-full bg-white border-r border-gray-200 rounded-none shadow-none">
         <CardBody className="p-4">
-          {/* Logo o Título de la App (Opcional) */}
           <div className="mb-8 px-2 flex items-center gap-2 text-unimar-primary mt-5">
              <Icon icon="ph:calculator-fill" className="text-3xl" />
              <span className="font-headings font-bold text-xl">SYOP</span>

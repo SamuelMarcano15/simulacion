@@ -1,74 +1,112 @@
 // lib/types/index.ts
 
-/**
- * Parámetros de entrada para los modelos de colas.
- */
+// --- TIPOS EXISTENTES (COLAS) ---
 export interface QueueModelParams {
-  lambda: number; // Tasa media de llegada (λ)
-  mu: number;     // Tasa media de servicio (μ) por servidor
-  c?: number;    // --- NUEVO: Número de servidores (c) ---
-  N?: number;    // Capacidad máxima del sistema (cola + servicio).
+  lambda: number;
+  mu: number;
+  c?: number;
+  N?: number;
 }
 
-/**
- * Resultados calculados para los modelos de colas.
- */
 export interface QueueModelResults {
-  rho: number;         // Factor de utilización del servidor (ρ = λ / (c*μ))
-  p0: number;          // Probabilidad de que el sistema esté vacío (P₀)
-  ls: number;          // Número promedio de clientes en el sistema (Ls)
-  lq: number;          // Número promedio de clientes en la cola (Lq)
-  ws: number;          // Tiempo promedio de un cliente en el sistema (Ws)
-  wq: number;          // Tiempo promedio de un cliente en la cola (Wq)
-  c_idle?: number;     // Número promedio de servidores inactivos.
-  c_busy?: number;     // Número promedio de servidores ocupados.
-  lambdaEff?: number;  // Tasa efectiva de llegada (λ_ef)
-  lambdaPerdida?: number; // Clientes perdidos por unidad de tiempo
-  probabilities: ProbabilityDistribution[]; // Distribución de probabilidad Pn
-  modelType: 'MM1' | 'MM1N' | 'MMc' | 'MMcN'; // --- MODIFICADO: 4 Tipos de modelo ---
-  params: QueueModelParams; // Guarda los parámetros usados para el cálculo
+  rho: number;
+  p0: number;
+  ls: number;
+  lq: number;
+  ws: number;
+  wq: number;
+  c_idle?: number;
+  c_busy?: number;
+  lambdaEff?: number;
+  lambdaPerdida?: number;
+  probabilities: ProbabilityDistribution[];
+  modelType: 'MM1' | 'MM1N' | 'MMc' | 'MMcN';
+  params: QueueModelParams;
 }
 
-/**
- * Representa una fila en la tabla de distribución de probabilidad.
- */
 export interface ProbabilityDistribution {
-  n: number;           // Número de clientes en el sistema (n)
-  pn: number;          // Probabilidad absoluta P(n)
-  cumulativePn: number;// Probabilidad acumulada Σ P(i) desde i=0 hasta n
+  n: number;
+  pn: number;
+  cumulativePn: number;
 }
 
-/**
- * Objeto para representar errores durante el cálculo.
- */
 export type CalculationError = {
   message: string;
 };
 
+// --- TIPOS EXISTENTES (MONTECARLO) ---
 export type DistributionType = 'POISSON' | 'EXPONENTIAL';
 
 export interface MonteCarloParams {
   distribution: DistributionType;
-  lambda: number;       // Tasa media (λ)
-  nVariables: number;   // Número de variables a simular (columnas)
-  nObservations: number; // Cantidad de iteraciones (filas)
+  lambda: number;
+  nVariables: number;
+  nObservations: number;
 }
 
 export interface SimulationRow {
-  observationIndex: number; // Índice de la iteración (1, 2, 3...)
-  randomValues: number[];   // Los números aleatorios (Ri) generados
-  simulatedValues: number[]; // Los valores resultantes (Xi) de la variable
+  observationIndex: number;
+  randomValues: number[];
+  simulatedValues: number[];
 }
 
 export interface MonteCarloStats {
-  mean: number[];   // Media por variable
-  stdDev: number[]; // Desviación estándar por variable
-  min: number[];    // Mínimo por variable
-  max: number[];    // Máximo por variable
+  mean: number[];
+  stdDev: number[];
+  min: number[];
+  max: number[];
 }
 
 export interface MonteCarloResults {
   params: MonteCarloParams;
   data: SimulationRow[];
   statistics: MonteCarloStats;
+}
+
+// --- NUEVOS TIPOS: SIMULADOR DE RESTAURANTE (PROYECTO FINAL) ---
+
+export interface RestaurantConfig {
+  tableCount: number;      // Cantidad de mesas (4-20)
+  queueLimit?: number;     // Límite de cola (opcional, null = infinito)
+  arrivalLambda: number;   // Tasa de llegada (Clientes/hora)
+  serviceMu: number;       // Tasa de servicio (Clientes/hora por mesa)
+  simulationSpeed: number; // Multiplicador de velocidad (x1, x2, x5...)
+}
+
+export type TableStatus = 'FREE' | 'OCCUPIED' | 'DIRTY';
+export type CustomerStatus = 'WAITING' | 'EATING' | 'LEAVING' | 'LOST';
+
+export interface TableEntity {
+  id: number;
+  status: TableStatus;
+  currentCustomerId?: number; // ID del cliente sentado (si hay)
+  remainingTime: number;      // Tiempo restante para liberarse/limpiarse
+}
+
+export interface CustomerEntity {
+  id: number;
+  status: CustomerStatus;
+  arrivalTime: number;     // Minuto en que llegó
+  seatTime?: number;       // Minuto en que se sentó
+  leaveTime?: number;      // Minuto en que salió
+}
+
+export interface SimulationStats {
+  totalCustomers: number;
+  customersServed: number;
+  customersLost: number;
+  avgWaitTime: number;     // Tiempo promedio en cola
+  avgSystemTime: number;   // Tiempo promedio total
+  utilization: number;     // % de uso de mesas
+  activeTablesAvg: number; // Promedio de mesas ocupadas
+}
+
+export interface RestaurantState {
+  currentTime: number;     // Tiempo actual de simulación (minutos)
+  tables: TableEntity[];
+  queue: CustomerEntity[]; // Clientes esperando
+  activeCustomers: CustomerEntity[]; // Clientes comiendo
+  stats: SimulationStats;
+  isRunning: boolean;
+  isPaused: boolean;
 }

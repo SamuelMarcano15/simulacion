@@ -12,14 +12,20 @@
 │   ├── CalculatorForm.tsx
 │   ├── Header.tsx
 │   ├── ModelSelector.tsx
+│   ├── MonteCarloResultsDisplay.tsx
 │   ├── ProbabilityCalculator.tsx
 │   ├── ProbabilityTable.tsx
-│   └── ResultsDisplay.tsx
+│   ├── ResultsDisplay.tsx
+│   ├── Sidebar.tsx
+│   └── views
+│       ├── MonteCarloView.tsx
+│       └── QueuingView.tsx
 ├── config
 │   └── fonts.ts
 ├── eslint.config.mjs
 ├── estructura.txt
 ├── lib
+│   ├── monteCarlo.ts
 │   ├── pdfGenerator.ts
 │   ├── queuingModels.ts
 │   └── types
@@ -40,4 +46,4 @@
 ├── tailwind.config.ts
 └── tsconfig.json
 
-9 directories, 32 files
+10 directories, 37 files

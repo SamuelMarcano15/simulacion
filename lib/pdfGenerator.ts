@@ -7,7 +7,18 @@ import {
   PageSizes,
   PDFPage,
 } from "pdf-lib";
-import { QueueModelResults, MonteCarloResults } from "@/lib/types";
+import {
+  QueueModelResults,
+  MonteCarloResults,
+  RestaurantState,
+  RestaurantConfig,
+} from "@/lib/types";
+
+// --- Tipos Locales para el Reporte de Restaurante ---
+export interface RestaurantReportData {
+  state: RestaurantState;
+  config: RestaurantConfig;
+}
 
 // --- Configuración de Estilos ---
 const colors = {
@@ -17,6 +28,7 @@ const colors = {
   grayLight: rgb(0.9, 0.9, 0.9),
   grayMedium: rgb(0.5, 0.5, 0.5),
   white: rgb(1, 1, 1),
+  red: rgb(0.8, 0.2, 0.2), // Para alertas (ej. clientes perdidos)
 };
 
 const layout = {
@@ -45,7 +57,7 @@ const drawText = (
   font: PDFFont,
   color = colors.textDark
 ) => {
-  // Sanear texto: Reemplazar caracteres problemáticos si se nos pasa alguno
+  // Sanear texto
   const safeText = text
     .replace(/λ/g, "Lambda")
     .replace(/μ/g, "Mu")
@@ -55,19 +67,28 @@ const drawText = (
     .replace(/≥/g, ">=");
 
   page.drawText(safeText, { x, y, size, font, color });
-  return size * 1.2; // Retorna la altura de línea estimada
+  return size * 1.2;
 };
 
-// Type Guard para diferenciar resultados
+// --- Type Guards ---
 function isQueueResults(
-  results: QueueModelResults | MonteCarloResults
+  results: any
 ): results is QueueModelResults {
   return (results as QueueModelResults).modelType !== undefined;
 }
 
+function isRestaurantReport(
+  results: any
+): results is RestaurantReportData {
+  return (
+    (results as RestaurantReportData).state !== undefined &&
+    (results as RestaurantReportData).config !== undefined
+  );
+}
+
 // --- Función Principal ---
 export async function generatePdfReport(
-  results: QueueModelResults | MonteCarloResults
+  results: QueueModelResults | MonteCarloResults | RestaurantReportData
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -77,11 +98,21 @@ export async function generatePdfReport(
   let { width, height } = page.getSize();
   let currentY = height - layout.margin;
 
-  // --- Lógica de Dibujo Específica ---
+  // --- Router de Reportes ---
   if (isQueueResults(results)) {
     await drawQueueReport(pdfDoc, page, results, font, fontBold, currentY);
+  } else if (isRestaurantReport(results)) {
+    await drawRestaurantReport(pdfDoc, page, results, font, fontBold, currentY);
   } else {
-    await drawMonteCarloReport(pdfDoc, page, results, font, fontBold, currentY);
+    // Asumimos MonteCarlo si no es los anteriores (por eliminación)
+    await drawMonteCarloReport(
+      pdfDoc,
+      page,
+      results as MonteCarloResults,
+      font,
+      fontBold,
+      currentY
+    );
   }
 
   const pdfBytes = await pdfDoc.save();
@@ -107,7 +138,7 @@ async function drawQueueReport(
   const modelName = getQueueModelTitle(results);
   y -= drawText(
     page,
-    `Reporte de Analisis: ${modelName}`, // Quitamos acento por si acaso
+    `Reporte de Analisis: ${modelName}`,
     layout.margin,
     y,
     layout.fontSizeTitle,
@@ -156,7 +187,7 @@ async function drawQueueReport(
   // Métricas
   y -= drawText(
     page,
-    "Metricas de Desempeno", // Sin ñ
+    "Metricas de Desempeno",
     layout.margin,
     y,
     layout.fontSizeHeader,
@@ -229,7 +260,6 @@ async function drawQueueReport(
   );
   y -= 15;
 
-  // Header Tabla
   const col1 = layout.margin + 10;
   const col2 = layout.margin + 120;
   const col3 = layout.margin + 240;
@@ -246,16 +276,23 @@ async function drawQueueReport(
 
   drawText(page, "n", col1, y, layout.fontSizeBody, fontBold, colors.white);
   drawText(page, "P(n)", col2, y, layout.fontSizeBody, fontBold, colors.white);
-  drawText(page, "P(acum)", col3, y, layout.fontSizeBody, fontBold, colors.white);
+  drawText(
+    page,
+    "P(acum)",
+    col3,
+    y,
+    layout.fontSizeBody,
+    fontBold,
+    colors.white
+  );
   y -= rowH;
 
   // Filas
   for (let i = 0; i < results.probabilities.length; i++) {
     const p = results.probabilities[i];
-    // Nueva página si es necesario
     if (y < layout.margin + rowH) {
       page = doc.addPage(PageSizes.A4);
-      y = page.getSize().height - layout.margin;
+      y = doc.getPage(doc.getPageCount() - 1).getSize().height - layout.margin;
     }
 
     if (i % 2 === 0) {
@@ -300,7 +337,7 @@ async function drawMonteCarloReport(
   // Título
   y -= drawText(
     page,
-    `Simulacion Montecarlo: ${results.params.distribution}`, // Sin acento
+    `Simulacion Montecarlo: ${results.params.distribution}`,
     layout.margin,
     y,
     layout.fontSizeTitle,
@@ -312,7 +349,7 @@ async function drawMonteCarloReport(
   // Parámetros
   y -= drawText(
     page,
-    "Configuracion", // Sin acento
+    "Configuracion",
     layout.margin,
     y,
     layout.fontSizeHeader,
@@ -325,23 +362,57 @@ async function drawMonteCarloReport(
   const paramValX = layout.margin + 150;
 
   drawText(page, "Distribucion:", paramLabelX, y, layout.fontSizeBody, fontBold);
-  drawText(page, results.params.distribution, paramValX, y, layout.fontSizeBody, font);
+  drawText(
+    page,
+    results.params.distribution,
+    paramValX,
+    y,
+    layout.fontSizeBody,
+    font
+  );
   y -= 15;
-  // CORRECCIÓN AQUÍ: Quitamos el símbolo λ
   drawText(page, "Tasa (Lambda):", paramLabelX, y, layout.fontSizeBody, fontBold);
-  drawText(page, `${results.params.lambda}`, paramValX, y, layout.fontSizeBody, font);
+  drawText(
+    page,
+    `${results.params.lambda}`,
+    paramValX,
+    y,
+    layout.fontSizeBody,
+    font
+  );
   y -= 15;
   drawText(page, "Variables:", paramLabelX, y, layout.fontSizeBody, fontBold);
-  drawText(page, `${results.params.nVariables}`, paramValX, y, layout.fontSizeBody, font);
+  drawText(
+    page,
+    `${results.params.nVariables}`,
+    paramValX,
+    y,
+    layout.fontSizeBody,
+    font
+  );
   y -= 15;
-  drawText(page, "Observaciones:", paramLabelX, y, layout.fontSizeBody, fontBold);
-  drawText(page, `${results.params.nObservations}`, paramValX, y, layout.fontSizeBody, font);
+  drawText(
+    page,
+    "Observaciones:",
+    paramLabelX,
+    y,
+    layout.fontSizeBody,
+    fontBold
+  );
+  drawText(
+    page,
+    `${results.params.nObservations}`,
+    paramValX,
+    y,
+    layout.fontSizeBody,
+    font
+  );
   y -= 25;
 
   // Estadísticas
   y -= drawText(
     page,
-    "Estadisticas Generales", // Sin acento
+    "Estadisticas Generales",
     layout.margin,
     y,
     layout.fontSizeHeader,
@@ -350,7 +421,6 @@ async function drawMonteCarloReport(
   );
   y -= 15;
 
-  // Tabla de Estadísticas
   const statsHeaderH = 20;
   const statsRowH = 18;
   const colVar = layout.margin + 10;
@@ -359,7 +429,6 @@ async function drawMonteCarloReport(
   const colMin = layout.margin + 300;
   const colMax = layout.margin + 400;
 
-  // Header Estadísticas
   page.drawRectangle({
     x: layout.margin,
     y: y - 5,
@@ -371,11 +440,10 @@ async function drawMonteCarloReport(
   drawText(page, "Variable", colVar, y, layout.fontSizeBody, fontBold, colors.white);
   drawText(page, "Media", colMean, y, layout.fontSizeBody, fontBold, colors.white);
   drawText(page, "Desv. Est.", colStd, y, layout.fontSizeBody, fontBold, colors.white);
-  drawText(page, "Min", colMin, y, layout.fontSizeBody, fontBold, colors.white); // Sin acento
-  drawText(page, "Max", colMax, y, layout.fontSizeBody, fontBold, colors.white); // Sin acento
+  drawText(page, "Min", colMin, y, layout.fontSizeBody, fontBold, colors.white);
+  drawText(page, "Max", colMax, y, layout.fontSizeBody, fontBold, colors.white);
   y -= statsHeaderH;
 
-  // Filas Estadísticas
   for (let i = 0; i < results.params.nVariables; i++) {
     if (i % 2 === 0) {
       page.drawRectangle({
@@ -387,21 +455,49 @@ async function drawMonteCarloReport(
       });
     }
     drawText(page, `Var ${i + 1}`, colVar, y, layout.fontSizeBody, font);
-    drawText(page, formatNum(results.statistics.mean[i]), colMean, y, layout.fontSizeBody, font);
-    drawText(page, formatNum(results.statistics.stdDev[i]), colStd, y, layout.fontSizeBody, font);
-    drawText(page, formatNum(results.statistics.min[i]), colMin, y, layout.fontSizeBody, font);
-    drawText(page, formatNum(results.statistics.max[i]), colMax, y, layout.fontSizeBody, font);
+    drawText(
+      page,
+      formatNum(results.statistics.mean[i]),
+      colMean,
+      y,
+      layout.fontSizeBody,
+      font
+    );
+    drawText(
+      page,
+      formatNum(results.statistics.stdDev[i]),
+      colStd,
+      y,
+      layout.fontSizeBody,
+      font
+    );
+    drawText(
+      page,
+      formatNum(results.statistics.min[i]),
+      colMin,
+      y,
+      layout.fontSizeBody,
+      font
+    );
+    drawText(
+      page,
+      formatNum(results.statistics.max[i]),
+      colMax,
+      y,
+      layout.fontSizeBody,
+      font
+    );
     y -= statsRowH;
   }
   y -= 25;
 
-  // Tabla de Datos (Limitada a 1000 filas)
+  // Tabla de Datos
   const maxRows = 1000;
   const dataToShow = results.data.slice(0, maxRows);
 
   y -= drawText(
     page,
-    `Detalle de Simulacion (Primeras ${dataToShow.length} obs.)`, // Sin acento
+    `Detalle de Simulacion (Primeras ${dataToShow.length} obs.)`,
     layout.margin,
     y,
     layout.fontSizeHeader,
@@ -410,14 +506,12 @@ async function drawMonteCarloReport(
   );
   y -= 15;
 
-  // Configuración dinámica de columnas
   const obsColWidth = 50;
   const remainingWidth = contentWidth - obsColWidth;
   const varColWidth = remainingWidth / results.params.nVariables;
   const fontSizeTable = results.params.nVariables > 5 ? 6 : 8;
   const rowHeight = fontSizeTable * 2.5;
 
-  // Función para dibujar encabezado de tabla de datos
   const drawDataHeader = (p: PDFPage, currentY: number) => {
     p.drawRectangle({
       x: layout.margin,
@@ -426,23 +520,37 @@ async function drawMonteCarloReport(
       height: rowHeight,
       color: colors.secondary,
     });
-    
-    drawText(p, "Obs #", layout.margin + 5, currentY, fontSizeTable, fontBold, colors.white);
-    
-    for(let i=0; i < results.params.nVariables; i++) {
-       const x = layout.margin + obsColWidth + (i * varColWidth);
-       drawText(p, `Var ${i+1} (R / V)`, x + 5, currentY, fontSizeTable, fontBold, colors.white);
+
+    drawText(
+      p,
+      "Obs #",
+      layout.margin + 5,
+      currentY,
+      fontSizeTable,
+      fontBold,
+      colors.white
+    );
+
+    for (let i = 0; i < results.params.nVariables; i++) {
+      const x = layout.margin + obsColWidth + i * varColWidth;
+      drawText(
+        p,
+        `Var ${i + 1} (R / V)`,
+        x + 5,
+        currentY,
+        fontSizeTable,
+        fontBold,
+        colors.white
+      );
     }
     return currentY - rowHeight;
   };
 
   y = drawDataHeader(page, y);
 
-  // Filas de Datos
   for (let i = 0; i < dataToShow.length; i++) {
     const row = dataToShow[i];
 
-    // Nueva página
     if (y < layout.margin + rowHeight) {
       page = doc.addPage(PageSizes.A4);
       y = height - layout.margin;
@@ -459,18 +567,191 @@ async function drawMonteCarloReport(
       });
     }
 
-    // Índice
-    drawText(page, `${row.observationIndex}`, layout.margin + 5, y, fontSizeTable, font);
+    drawText(
+      page,
+      `${row.observationIndex}`,
+      layout.margin + 5,
+      y,
+      fontSizeTable,
+      font
+    );
 
-    // Valores
-    for(let j=0; j < results.params.nVariables; j++) {
-       const x = layout.margin + obsColWidth + (j * varColWidth);
-       const text = `R:${formatNum(row.randomValues[j], 3)} / V:${formatNum(row.simulatedValues[j], 2)}`;
-       drawText(page, text, x + 5, y, fontSizeTable, font);
+    for (let j = 0; j < results.params.nVariables; j++) {
+      const x = layout.margin + obsColWidth + j * varColWidth;
+      const text = `R:${formatNum(row.randomValues[j], 3)} / V:${formatNum(
+        row.simulatedValues[j],
+        2
+      )}`;
+      drawText(page, text, x + 5, y, fontSizeTable, font);
     }
 
     y -= rowHeight;
   }
+}
+
+// ==========================================
+// REPORTE: RESTAURANTE (PROYECTO FINAL)
+// ==========================================
+async function drawRestaurantReport(
+  doc: PDFDocument,
+  page: PDFPage,
+  data: RestaurantReportData,
+  font: PDFFont,
+  fontBold: PDFFont,
+  startY: number
+) {
+  let y = startY;
+  const { state, config } = data;
+  const { stats } = state;
+
+  // 1. Título
+  y -= drawText(
+    page,
+    "Reporte: Simulacion de Restaurante (Drone View)",
+    layout.margin,
+    y,
+    layout.fontSizeTitle,
+    fontBold,
+    colors.primary
+  );
+  y -= 20;
+
+  // 2. Configuración
+  y -= drawText(
+    page,
+    "Parametros de la Simulacion",
+    layout.margin,
+    y,
+    layout.fontSizeHeader,
+    fontBold,
+    colors.secondary
+  );
+  y -= 15;
+
+  const paramLabelX = layout.margin + 10;
+  const paramValX = layout.margin + 200;
+
+  const drawRow = (label: string, value: string) => {
+    drawText(page, label, paramLabelX, y, layout.fontSizeBody, fontBold);
+    drawText(page, value, paramValX, y, layout.fontSizeBody, font);
+    y -= 18;
+  };
+
+  drawRow("Mesas (Servidores):", `${config.tableCount}`);
+  drawRow(
+    "Limite de Cola (N):",
+    config.queueLimit ? `${config.queueLimit}` : "Infinito"
+  );
+  drawRow(
+    "Tasa de Llegada (Lambda):",
+    `${config.arrivalLambda} clientes/hora`
+  );
+  drawRow("Tasa de Servicio (Mu):", `${config.serviceMu} clientes/hora`);
+  drawRow("Tiempo Simulado Total:", `${state.currentTime.toFixed(2)} minutos`);
+  y -= 25;
+
+  // 3. Resultados Generales con Interpretación
+  y -= drawText(
+    page,
+    "Metricas de Desempeno e Interpretacion",
+    layout.margin,
+    y,
+    layout.fontSizeHeader,
+    fontBold,
+    colors.secondary
+  );
+  y -= 15;
+
+  // Helper para métrica con interpretación
+  const drawMetricWithInterpretation = (
+    label: string,
+    value: string,
+    interpretation: string,
+    valueColor = colors.textDark
+  ) => {
+    // Línea Principal
+    drawText(page, label, paramLabelX, y, layout.fontSizeBody, fontBold);
+    drawText(page, value, paramValX, y, layout.fontSizeBody, font, valueColor);
+    y -= 12;
+    // Línea de Interpretación (cursiva simulada o gris)
+    drawText(
+      page,
+      `Interp: ${interpretation}`,
+      paramLabelX + 10, // Pequeña indentación
+      y,
+      layout.fontSizeSmall,
+      font, // Fuente normal
+      colors.grayMedium
+    );
+    y -= 20; // Espacio extra entre bloques
+  };
+
+  drawMetricWithInterpretation(
+    "Total Clientes Generados:",
+    `${stats.totalCustomers}`,
+    "Demanda total recibida durante el periodo simulado."
+  );
+
+  drawMetricWithInterpretation(
+    "Clientes Atendidos:",
+    `${stats.customersServed}`,
+    "Flujo de salida real (Throughput) del sistema."
+  );
+
+  // Clientes Perdidos
+  drawMetricWithInterpretation(
+    "Clientes Perdidos:",
+    `${stats.customersLost} (${formatNum(
+      (stats.customersLost / (stats.totalCustomers || 1)) * 100,
+      1
+    )}%)`,
+    "Demanda insatisfecha por falta de capacidad (Cola llena).",
+    stats.customersLost > 0 ? colors.red : colors.textDark
+  );
+
+  drawMetricWithInterpretation(
+    "Tiempo Prom. en Sistema:",
+    `${formatNum(stats.avgSystemTime, 2)} min`,
+    "Tiempo total del ciclo (Espera + Servicio) por cliente."
+  );
+
+  drawMetricWithInterpretation(
+    "Tiempo Prom. en Cola:",
+    `${formatNum(stats.avgWaitTime, 2)} min`,
+    "Tiempo muerto promedio que espera un cliente antes de ser atendido."
+  );
+
+  drawMetricWithInterpretation(
+    "Utilizacion Promedio:",
+    `${formatNum(stats.utilization * 100, 2)}%`,
+    "Porcentaje del tiempo que los servidores (mesas) estuvieron productivos."
+  );
+
+  drawMetricWithInterpretation(
+    "Mesas Ocupadas Prom.:",
+    `${formatNum(stats.activeTablesAvg, 2)}`,
+    "Numero promedio de mesas con clientes en cualquier momento."
+  );
+
+  const idleServers = config.tableCount - stats.activeTablesAvg;
+  drawMetricWithInterpretation(
+    "Mesas Inactivas Prom.:",
+    `${formatNum(idleServers, 2)}`,
+    "Capacidad ociosa promedio del restaurante."
+  );
+
+  y -= 10;
+
+  // 4. Nota Final
+  drawText(
+    page,
+    "Nota: Datos generados mediante simulacion estocastica de eventos discretos.",
+    layout.margin,
+    y,
+    layout.fontSizeSmall,
+    font,
+    colors.grayMedium
+  );
 }
 
 // --- Utilidades ---
@@ -490,8 +771,11 @@ function getQueueModelTitle(results: QueueModelResults): string {
   }
 }
 
-export function downloadPdf(bytes: Uint8Array, filename: string = "reporte.pdf") {
- const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
+export function downloadPdf(
+  bytes: Uint8Array,
+  filename: string = "reporte.pdf"
+) {
+  const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = filename;
